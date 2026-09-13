@@ -14,6 +14,22 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <velocity.version>3.5.0-SNAPSHOT</velocity.version>
+        <configurate.version>4.2.0</configurate.version>
+        <hikaricp.version>7.0.2</hikaricp.version>
+        <postgresql.version>42.7.11</postgresql.version>
+        <h2.version>2.5.250</h2.version>
+        <junit.version>5.14.4</junit.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <surefire.version>3.6.0</surefire.version>
+        <jacoco.version>0.8.15</jacoco.version>
+        <!-- Velocity release the integration test boots the built plugin on. -->
+        <velocity.test.version>3.5.1</velocity.test.version>
+        <!-- Where the downloaded Velocity jar is kept. Point this outside the
+             build directory in CI so it survives `clean` and can be cached. -->
+        <velocity.cache.dir>${project.build.directory}/velocity</velocity.cache.dir>
+        <!-- Shaded dependencies are relocated under this package. -->
+        <shade.relocation.base>me.ganamaga.katharsis_proxy.libs</shade.relocation.base>
     </properties>
 
     <profiles>
@@ -92,6 +108,109 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${surefire.version}</version>
+            </plugin>
+            <!-- *IT tests run after package, so they see the shaded jar. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>${surefire.version}</version>
+                <configuration>
+                    <systemPropertyVariables>
+                        <katharsis.plugin.jar>${project.build.directory}/${project.build.finalName}.jar</katharsis.plugin.jar>
+                        <katharsis.velocity.version>${velocity.test.version}</katharsis.velocity.version>
+                        <katharsis.velocity.cache>${velocity.cache.dir}</katharsis.velocity.cache>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <include>com.zaxxer:HikariCP</include>
+                                    <include>org.postgresql:postgresql</include>
+                                    <include>com.h2database:h2</include>
+                                </includes>
+                            </artifactSet>
+                            <!-- Velocity plugins can see each other's classes, so the JDBC
+                                 driver and the pool are relocated to avoid clashing with
+                                 another plugin shipping different versions. -->
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.zaxxer.hikari</pattern>
+                                    <shadedPattern>${shade.relocation.base}.hikari</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.postgresql</pattern>
+                                    <shadedPattern>${shade.relocation.base}.postgresql</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.h2</pattern>
+                                    <shadedPattern>${shade.relocation.base}.h2</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                        <exclude>META-INF/versions/*/module-info.class</exclude>
+                                        <exclude>module-info.class</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <transformers>
+                                <!-- Merges and relocates META-INF/services/java.sql.Driver. -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-site-plugin</artifactId>
                 <version>3.12.1</version>
                 <dependencies>
@@ -144,8 +263,54 @@
         <dependency>
             <groupId>com.velocitypowered</groupId>
             <artifactId>velocity-api</artifactId>
-            <version>3.5.0-SNAPSHOT</version>
+            <version>${velocity.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!-- Shipped by the proxy itself, so it must not be shaded in. -->
+        <dependency>
+            <groupId>org.spongepowered</groupId>
+            <artifactId>configurate-yaml</artifactId>
+            <version>${configurate.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Not shipped by the proxy: shaded and relocated into the plugin jar. -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+            <exclusions>
+                <!-- Provided by the proxy. -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Makes the plugin's own log output visible while tests run. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

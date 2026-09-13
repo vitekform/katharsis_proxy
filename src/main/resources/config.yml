@@ -1,0 +1,50 @@
+# Katharsis proxy configuration.
+#
+# Keys left out of this file fall back to their built-in defaults, so it is
+# safe to delete anything you do not want to override.
+
+database:
+  # Where player data is stored.
+  #   h2         - embedded file database, no setup required (default)
+  #   postgresql - external PostgreSQL server, configured below
+  type: h2
+
+  # Used when type is h2.
+  h2:
+    # Database file name, relative to this plugin's data directory.
+    # H2 appends its own .mv.db suffix.
+    file: katharsis
+
+  # Used when type is postgresql. Ignored while type is h2.
+  postgresql:
+    # Hostname or IP address of the PostgreSQL server.
+    host: localhost
+    # Port the PostgreSQL server listens on.
+    port: 5432
+    # Name of the database to use. It must already exist.
+    database: katharsis
+    # User to authenticate as.
+    username: katharsis
+    # Password for the user above.
+    password: ''
+    # SSL mode passed to the JDBC driver.
+    # One of: disable, allow, prefer, require, verify-ca, verify-full.
+    ssl-mode: disable
+
+  # Connection pool, used by both backends.
+  pool:
+    # Maximum number of connections kept in the pool.
+    maximum-pool-size: 10
+    # Minimum number of idle connections kept in the pool.
+    minimum-idle: 2
+    # How long to wait for a connection from the pool, in milliseconds.
+    connection-timeout-ms: 10000
+    # How long an idle connection may sit unused in the pool, in milliseconds.
+    idle-timeout-ms: 600000
+    # Maximum lifetime of a connection, in milliseconds.
+    # Keep this below any idle timeout enforced by PostgreSQL or your firewall.
+    max-lifetime-ms: 1800000
+
+# Language assigned to a player the first time they join.
+# At most 5 characters, e.g. en_US.
+default-language: en_US

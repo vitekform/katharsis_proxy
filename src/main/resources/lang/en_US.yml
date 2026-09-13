@@ -1,0 +1,36 @@
+# English (en_US) messages for the Katharsis proxy.
+#
+# Formatting uses MiniMessage: https://docs.advntr.dev/minimessage/format.html
+# Placeholders are written like <server> and are listed per message below.
+# To add a language, copy this file to lang/<code>.yml and translate the values.
+# The file name is the language code, and it must be at most 5 characters.
+
+prefix: "<dark_gray>[<gold>Katharsis</gold>]</dark_gray> "
+
+players-only: "<red>Only players can use this command.</red>"
+
+# <server>
+connecting: "<gray>Sending you to <gold><server></gold>...</gray>"
+# <server>
+already-connected: "<red>You are already on <gold><server></gold>.</red>"
+# <server>
+unknown-server: "<red>The server <gold><server></gold> is not configured on this proxy.</red>"
+# <server>
+connection-failed: "<red>Could not connect you to <gold><server></gold>. Please try again later.</red>"
+
+# <time>
+on-cooldown: "<red>Please wait <gold><time></gold> before using this command again.</red>"
+# <minutes> <seconds>
+duration-minutes-seconds: "<minutes>m <seconds>s"
+# <seconds>
+duration-seconds: "<seconds>s"
+
+# <language>
+language-current: "<gray>Your language is <gold><language></gold>.</gray>"
+# <languages>
+language-available: "<gray>Available languages: <gold><languages></gold></gray>"
+# <language>
+language-changed: "<green>Your language is now <gold><language></gold>.</green>"
+# <language>
+language-unknown: "<red>Unknown language <gold><language></gold>.</red>"
+language-failed: "<red>Could not save your language. Please try again later.</red>"

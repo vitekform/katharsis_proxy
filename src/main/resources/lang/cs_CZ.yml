@@ -1,0 +1,34 @@
+# Čeština (cs_CZ) pro Katharsis proxy.
+#
+# Formátování používá MiniMessage: https://docs.advntr.dev/minimessage/format.html
+# Zástupné symboly se píší jako <server> a jsou uvedeny u každé zprávy.
+
+prefix: "<dark_gray>[<gold>Katharsis</gold>]</dark_gray> "
+
+players-only: "<red>Tento příkaz mohou použít pouze hráči.</red>"
+
+# <server>
+connecting: "<gray>Přesouvám tě na <gold><server></gold>...</gray>"
+# <server>
+already-connected: "<red>Už jsi na serveru <gold><server></gold>.</red>"
+# <server>
+unknown-server: "<red>Server <gold><server></gold> není na této proxy nastaven.</red>"
+# <server>
+connection-failed: "<red>Nepodařilo se tě připojit na <gold><server></gold>. Zkus to prosím později.</red>"
+
+# <time>
+on-cooldown: "<red>Počkej prosím <gold><time></gold>, než příkaz použiješ znovu.</red>"
+# <minutes> <seconds>
+duration-minutes-seconds: "<minutes> min <seconds> s"
+# <seconds>
+duration-seconds: "<seconds> s"
+
+# <language>
+language-current: "<gray>Tvůj jazyk je <gold><language></gold>.</gray>"
+# <languages>
+language-available: "<gray>Dostupné jazyky: <gold><languages></gold></gray>"
+# <language>
+language-changed: "<green>Tvůj jazyk je nyní <gold><language></gold>.</green>"
+# <language>
+language-unknown: "<red>Neznámý jazyk <gold><language></gold>.</red>"
+language-failed: "<red>Nepodařilo se uložit tvůj jazyk. Zkus to prosím později.</red>"
