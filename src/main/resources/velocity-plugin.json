@@ -1,0 +1,10 @@
+{
+  "id": "katharsis_proxy",
+  "name": "katharsis_proxy",
+  "version": "${version}",
+  "main": "me.ganamaga.katharsis_proxy.Katharsis_proxy",
+  "authors": [
+    "vitekform",
+    "ganamaga"
+  ]
+}
