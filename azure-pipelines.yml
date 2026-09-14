@@ -9,7 +9,10 @@
 #                    supported Paper API.
 #   Companion26    - builds the same sources for the 26.x line, which needs
 #                    JDK 25 because every 26.x API jar is a Java 25 artifact.
-#   Publish stage  - keeps both jars as build artifacts, master only.
+#
+# Each build job publishes its own jar under its final name, on master only.
+# There is no second stage re-publishing them: that stored every jar twice for
+# no gain.
 #
 # The two jobs are independent: the plugins share a wire protocol, not code, and
 # each side pins the other's exact bytes in its own tests.
@@ -171,8 +174,11 @@ stages:
               targetFolder: '$(Build.ArtifactStagingDirectory)'
 
           - publish: $(Build.ArtifactStagingDirectory)
-            artifact: proxy-plugin
+            artifact: katharsis-proxy
             displayName: Publish the proxy jar
+            # Only master keeps jars. A PR run would otherwise store its own
+            # copy against the artifact budget for a jar nobody downloads.
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 
       - job: Companion
         displayName: Paper companion (1.21.x)
@@ -246,8 +252,11 @@ stages:
               targetFolder: '$(Build.ArtifactStagingDirectory)'
 
           - publish: $(Build.ArtifactStagingDirectory)
-            artifact: companion-plugin
+            artifact: katharsis-companion
             displayName: Publish the companion jar
+            # Only master keeps jars. A PR run would otherwise store its own
+            # copy against the artifact budget for a jar nobody downloads.
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
 
       - job: Companion26
         displayName: Paper companion (26.x)
@@ -347,47 +356,8 @@ stages:
               targetFolder: '$(Build.ArtifactStagingDirectory)'
 
           - publish: $(Build.ArtifactStagingDirectory)
-            artifact: companion-plugin-26
+            artifact: katharsis-companion-26
             displayName: Publish the 26.x companion jar
-
-  - stage: Publish
-    displayName: Publish artifact
-    dependsOn: Build
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-    jobs:
-      - job: Artifact
-        displayName: Retain both jars
-        pool:
-          vmImage: ubuntu-latest
-        steps:
-          - checkout: none
-
-          - download: current
-            artifact: proxy-plugin
-            displayName: Download the proxy jar
-
-          - download: current
-            artifact: companion-plugin
-            displayName: Download the 1.21.x companion jar
-
-          - download: current
-            artifact: companion-plugin-26
-            displayName: Download the 26.x companion jar
-
-          - task: PublishBuildArtifacts@1
-            displayName: Retain the proxy jar
-            inputs:
-              pathToPublish: '$(Pipeline.Workspace)/proxy-plugin'
-              artifactName: katharsis-proxy
-
-          - task: PublishBuildArtifacts@1
-            displayName: Retain the 1.21.x companion jar
-            inputs:
-              pathToPublish: '$(Pipeline.Workspace)/companion-plugin'
-              artifactName: katharsis-companion
-
-          - task: PublishBuildArtifacts@1
-            displayName: Retain the 26.x companion jar
-            inputs:
-              pathToPublish: '$(Pipeline.Workspace)/companion-plugin-26'
-              artifactName: katharsis-companion-26
+            # Only master keeps jars. A PR run would otherwise store its own
+            # copy against the artifact budget for a jar nobody downloads.
+            condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
