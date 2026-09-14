@@ -9,7 +9,6 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
-import me.ganamaga.katharsis_proxy.command.LanguageCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
@@ -39,9 +38,6 @@ public class Katharsis_proxy {
 
     /** How often expired language cache entries are reclaimed. */
     private static final long CACHE_SWEEP_MINUTES = 1L;
-
-    /** Dropped as soon as a backend announces the companion plugin. */
-    private static final String LANGUAGE_COMMAND = "language";
 
     @Inject
     private Logger logger;
@@ -153,12 +149,10 @@ public class Katharsis_proxy {
         logger.info("Registered {} server switch command(s) with a {}s cooldown.",
                 serverSwitchCommands.size(), COMMAND_COOLDOWN.toSeconds());
 
-        CommandManager commandManager = proxy.getCommandManager();
-        commandManager.register(
-                commandManager.metaBuilder(LANGUAGE_COMMAND).aliases("lang").plugin(this).build(),
-                new LanguageCommand(proxy, this, logger, messages, players, languageCache));
-        logger.info("Registered /{}; a backend running the companion plugin will take it over.",
-                LANGUAGE_COMMAND);
+        // No /language here. The companion plugin owns the selector, and two
+        // commands on the same name would shadow each other unpredictably
+        // depending on which registered last.
+        logger.info("No /language is registered on the proxy; the companion plugin provides the selector.");
     }
 
     /**
@@ -166,7 +160,7 @@ public class Katharsis_proxy {
      * database is down, so callers get an explicit error instead of silence.
      */
     private void registerPluginMessaging() {
-        CompanionRegistry companions = new CompanionRegistry(proxy, logger, LANGUAGE_COMMAND);
+        CompanionRegistry companions = new CompanionRegistry(logger);
         proxy.getChannelRegistrar().register(LanguageChannel.IDENTIFIER);
         proxy.getEventManager().register(this, new LanguageChannelListener(
                 proxy, logger, languageRegistry, messages, database, players, languageCache, companions));

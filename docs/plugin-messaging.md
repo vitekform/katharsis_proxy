@@ -9,7 +9,7 @@ Backend servers can read and change a player's language through the
 | `set_language`      | Stores a new language for the player.                              |
 | `clear_language`    | Resets the player's language to the configured `default-language`. |
 | `get_language_menu` | Everything needed to draw a language selector, already translated. |
-| `announce`          | Declares that this backend owns `/language`.                       |
+| `announce`          | Declares that this backend runs the companion plugin.              |
 
 Every request gets exactly one response on the same channel.
 
@@ -101,23 +101,26 @@ succeeds and reports the configured default, so the menu still opens.
 
 ### `announce`
 
-Tells the proxy that this backend runs the companion plugin and provides the
-language selector itself. On the first announcement from any backend, **the
-proxy unregisters its own `/language`**, so players get one interface instead of
-two that disagree.
+Tells the proxy that this backend runs the companion plugin. The proxy records
+the server and logs it; nothing else changes, because the proxy registers no
+`/language` of its own in the first place.
 
 The `uuid` field is ignored — no player is involved — but it must still be
 present; send the nil UUID. The fourth field carries the sender's version and
 appears in the proxy log.
 
-Two consequences worth knowing:
+A successful reply appends one field after `error`:
 
-- A backend can only announce once a player is connected to it, because a plugin
-  message needs a player to travel on. Until then the proxy's `/language` is
-  still registered.
-- The proxy does not put its command back. Once any backend has announced,
-  players on backends *without* the companion have no `/language` until the
-  proxy restarts.
+| # | Field        | Type | Notes                                          |
+|---|--------------|------|------------------------------------------------|
+| 7 | `serverName` | UTF  | The name the proxy knows this backend by        |
+
+A backend cannot read its own entry out of `velocity.toml`, so this is how it
+learns which server it is running as.
+
+Announcing is idempotent: repeat it as often as you like. A backend can only
+announce once a player is connected to it, since a plugin message needs a player
+to travel on.
 
 ### `clear_language`
 

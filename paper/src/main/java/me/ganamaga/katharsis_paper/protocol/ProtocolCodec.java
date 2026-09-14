@@ -61,11 +61,17 @@ public final class ProtocolCodec {
             String language = in.readUTF();
             String error = in.readUTF();
 
+            // Two operations append extra fields after the six base ones.
             ProxyResponse.Menu menu = null;
-            if (LanguageChannel.OP_MENU.equals(operation) && success) {
-                menu = readMenu(in);
+            String serverName = "";
+            if (success) {
+                if (LanguageChannel.OP_MENU.equals(operation)) {
+                    menu = readMenu(in);
+                } else if (LanguageChannel.OP_ANNOUNCE.equals(operation)) {
+                    serverName = in.readUTF();
+                }
             }
-            return new ProxyResponse(operation, requestId, uuid, success, language, error, menu);
+            return new ProxyResponse(operation, requestId, uuid, success, language, error, menu, serverName);
         } catch (IOException | RuntimeException e) {
             // Truncated or foreign payload; the caller drops it.
             return null;

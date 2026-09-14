@@ -16,8 +16,9 @@ import java.util.logging.Level;
 /**
  * Opens the language selector.
  *
- * <p>Replaces the proxy's own {@code /language}: the proxy unregisters its copy
- * as soon as this server announces itself.</p>
+ * <p>This is the only {@code /language} on the network: the proxy deliberately
+ * registers none, so there is no second implementation to shadow or be shadowed
+ * by.</p>
  */
 public final class LanguageCommand implements CommandExecutor {
 

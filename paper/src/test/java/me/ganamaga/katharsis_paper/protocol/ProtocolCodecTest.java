@@ -181,6 +181,45 @@ class ProtocolCodecTest {
         assertNull(ProtocolCodec.decodeResponse(bytes.toByteArray()));
     }
 
+    @Test
+    @DisplayName("an announce reply carries the name the proxy knows this server by")
+    void decodesAnnounceServerName() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(LanguageChannel.OP_ANNOUNCE);
+            out.writeUTF("r10");
+            out.writeUTF(PLAYER);
+            out.writeBoolean(true);
+            out.writeUTF("");
+            out.writeUTF("");
+            out.writeUTF("lifesteal");
+        }
+
+        ProxyResponse decoded = ProtocolCodec.decodeResponse(bytes.toByteArray());
+
+        assertTrue(decoded.success());
+        assertEquals("lifesteal", decoded.serverName());
+    }
+
+    @Test
+    @DisplayName("a failed announce has no server name, and that is not an error")
+    void failedAnnounceHasNoServerName() throws IOException {
+        byte[] reply = response(LanguageChannel.OP_ANNOUNCE, "r11", PLAYER, false, "", "malformed_request");
+
+        ProxyResponse decoded = ProtocolCodec.decodeResponse(reply);
+
+        assertFalse(decoded.success());
+        assertEquals("", decoded.serverName(), "never null, so callers need no guard");
+    }
+
+    @Test
+    @DisplayName("other operations report an empty server name")
+    void otherOperationsHaveNoServerName() throws IOException {
+        byte[] reply = response(LanguageChannel.OP_SET, "r12", PLAYER, true, "cs_CZ", "");
+
+        assertEquals("", ProtocolCodec.decodeResponse(reply).serverName());
+    }
+
     // --- helpers, mirroring what the proxy writes --------------------------
 
     private static byte[] response(String operation, String requestId, String uuid,

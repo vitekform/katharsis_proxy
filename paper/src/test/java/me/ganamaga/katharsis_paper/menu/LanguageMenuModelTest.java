@@ -19,7 +19,7 @@ class LanguageMenuModelTest {
             languages.put(code, "Name of " + code);
         }
         return new ProxyResponse("get_language_menu", "r1", "uuid", true, current, "",
-                new ProxyResponse.Menu("<b>Title", "select", "current", languages));
+                new ProxyResponse.Menu("<b>Title", "select", "current", languages), "");
     }
 
     @Test

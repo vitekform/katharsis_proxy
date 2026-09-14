@@ -26,14 +26,7 @@ duration-minutes-seconds: "<minutes>m <seconds>s"
 duration-seconds: "<seconds>s"
 
 # <language>
-language-current: "<gray>Your language is <gold><language></gold>.</gray>"
-# <languages>
-language-available: "<gray>Available languages: <gold><languages></gold></gray>"
-# <language>
 language-changed: "<green>Your language is now <gold><language></gold>.</green>"
-# <language>
-language-unknown: "<red>Unknown language <gold><language></gold>.</red>"
-language-failed: "<red>Could not save your language. Please try again later.</red>"
 
 # Shown in the companion plugin's language selector.
 # Each language file names itself, so every entry reads natively.

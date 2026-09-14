@@ -78,7 +78,7 @@ class LanguageChannelListenerTest {
 
         backend = stubBackend();
         ProxyServer proxy = stubProxy();
-        companions = new CompanionRegistry(proxy, logger, "language");
+        companions = new CompanionRegistry(logger);
         listener = new LanguageChannelListener(proxy, logger, registry,
                 new Messages(registry, cache), database, players, cache, companions);
     }
@@ -171,7 +171,8 @@ class LanguageChannelListenerTest {
     }
 
     private record Reply(String operation, String requestId, String uuid,
-                         boolean success, String language, String error, Menu menu) {
+                         boolean success, String language, String error,
+                         Menu menu, String serverName) {
     }
 
     /** The extra fields a get_language_menu reply carries. */
@@ -209,10 +210,15 @@ class LanguageChannelListenerTest {
         }
         ByteArrayDataInput in = ByteStreams.newDataInput(replies.get(0));
         String operation = in.readUTF();
-        Reply reply = new Reply(operation, in.readUTF(), in.readUTF(),
-                in.readBoolean(), in.readUTF(), in.readUTF(),
-                LanguageChannel.OP_MENU.equals(operation) ? readMenu(in) : null);
-        return new Delivery(reply, forwarded);
+        String requestId = in.readUTF();
+        String uuid = in.readUTF();
+        boolean success = in.readBoolean();
+        String language = in.readUTF();
+        String error = in.readUTF();
+        Menu menu = LanguageChannel.OP_MENU.equals(operation) && success ? readMenu(in) : null;
+        String serverName = LanguageChannel.OP_ANNOUNCE.equals(operation) && success ? in.readUTF() : "";
+        return new Delivery(new Reply(operation, requestId, uuid, success, language, error, menu, serverName),
+                forwarded);
     }
 
     private static Menu readMenu(ByteArrayDataInput in) {
@@ -392,17 +398,36 @@ class LanguageChannelListenerTest {
     }
 
     @Test
-    @DisplayName("announce takes /language off the proxy, once")
-    void announceTakesOverLanguageCommand() throws Exception {
+    @DisplayName("announce records the backend and is safe to repeat")
+    void announceRecordsTheBackend() throws Exception {
         assertFalse(companions.hasCompanion());
 
         Reply first = call(backend, announce("r16", "1.0"));
+
         assertTrue(first.success());
-        assertEquals(List.of("language"), unregisteredCommands, "the proxy released its command");
+        assertTrue(companions.hasCompanion());
         assertEquals(Set.of("lifesteal"), companions.servers());
 
-        call(backend, announce("r17", "1.0"));
-        assertEquals(List.of("language"), unregisteredCommands, "unregistering again would be pointless");
+        Reply again = call(backend, announce("r17", "1.0"));
+        assertTrue(again.success(), "a repeat announcement is a harmless no-op");
+        assertEquals(Set.of("lifesteal"), companions.servers());
+    }
+
+    @Test
+    @DisplayName("announce tells the backend which server the proxy knows it as")
+    void announceReportsTheServerName() throws Exception {
+        Reply reply = call(backend, announce("r23", "1.0"));
+
+        assertEquals("lifesteal", reply.serverName(),
+                "a backend cannot read its own name out of velocity.toml, so the proxy sends it");
+    }
+
+    @Test
+    @DisplayName("the proxy never unregisters commands; it registers no /language to begin with")
+    void proxyDoesNotTouchCommands() throws Exception {
+        call(backend, announce("r24", "1.0"));
+
+        assertTrue(unregisteredCommands.isEmpty());
     }
 
     @Test
@@ -489,6 +514,5 @@ class LanguageChannelListenerTest {
         assertEquals(LanguageChannel.OP_ANNOUNCE, reply.operation());
         assertEquals("r1", reply.requestId());
         assertEquals(Set.of("lifesteal"), companions.servers());
-        assertEquals(List.of("language"), unregisteredCommands);
     }
 }

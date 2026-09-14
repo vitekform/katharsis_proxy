@@ -37,19 +37,7 @@ public enum MessageKey {
     DURATION_SECONDS("duration-seconds"),
 
     /** Placeholders: {@code <language>}. */
-    LANGUAGE_CURRENT("language-current"),
-
-    /** Placeholders: {@code <languages>}. */
-    LANGUAGE_AVAILABLE("language-available"),
-
-    /** Placeholders: {@code <language>}. */
     LANGUAGE_CHANGED("language-changed"),
-
-    /** Placeholders: {@code <language>}. */
-    LANGUAGE_UNKNOWN("language-unknown"),
-
-    /** Placeholders: none. */
-    LANGUAGE_FAILED("language-failed"),
 
     /**
      * This language's own name, as shown in the companion plugin's selector.

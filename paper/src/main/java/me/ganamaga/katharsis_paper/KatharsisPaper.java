@@ -35,12 +35,16 @@ public final class KatharsisPaper extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new LanguageMenuListener(this, client, messages), this);
-        getServer().getPluginManager().registerEvents(
-                new AnnounceListener(this, client, getPluginMeta().getVersion()), this);
+
+        AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion());
+        getServer().getPluginManager().registerEvents(announcer, this);
 
         registerLanguageCommand(messages);
 
-        getLogger().info("Ready; waiting for a player to join so the proxy can be told we serve /language.");
+        // Tell the proxy who we are straight away. On a cold start there is no
+        // player yet to carry the message, so this reports that and the first
+        // join sends it instead.
+        announcer.announceOnStartup();
     }
 
     @Override

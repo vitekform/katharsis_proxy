@@ -13,9 +13,16 @@ import java.util.Optional;
  * @param language  resulting language on success, empty on failure
  * @param error     error code on failure, empty on success
  * @param menu      selector payload, present only on {@code get_language_menu}
+ * @param serverName the name the proxy knows this server by, present only on
+ *                   {@code announce}; empty when the proxy did not send one
  */
 public record ProxyResponse(String operation, String requestId, String uuid,
-                            boolean success, String language, String error, Menu menu) {
+                            boolean success, String language, String error,
+                            Menu menu, String serverName) {
+
+    public ProxyResponse {
+        serverName = serverName == null ? "" : serverName;
+    }
 
     /**
      * The selector payload.

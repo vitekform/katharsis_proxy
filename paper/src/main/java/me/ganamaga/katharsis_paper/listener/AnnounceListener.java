@@ -1,20 +1,27 @@
 package me.ganamaga.katharsis_paper.listener;
 
 import me.ganamaga.katharsis_paper.protocol.ProxyClient;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.Plugin;
 
 import java.time.Duration;
+import java.util.Optional;
 
 /**
- * Tells the proxy this server owns the language selector.
+ * Tells the proxy this server runs the companion and owns the language
+ * selector.
  *
- * <p>A plugin message needs a player to travel on, so the announcement waits
- * for the first join. It is repeated, at most once per
- * {@link #ANNOUNCE_INTERVAL}, so that a proxy which restarted learns about this
- * server again without needing one here.</p>
+ * <p>The announcement is sent at startup, but a plugin message can only travel
+ * on a player's connection, so "at startup" means <em>as soon as there is a
+ * player to carry it</em>. On a normal boot that is the first join; on a reload
+ * of an already-populated server it is immediate. Either way the proxy learns
+ * about this server without anyone running a command.</p>
+ *
+ * <p>It is then repeated, at most once per {@link #ANNOUNCE_INTERVAL}, so that a
+ * proxy which restarted finds out about this server again.</p>
  */
 public final class AnnounceListener implements Listener {
 
@@ -34,20 +41,49 @@ public final class AnnounceListener implements Listener {
         this.version = version;
     }
 
+    /**
+     * Announces now if anyone is online to carry the message.
+     *
+     * <p>Called once the plugin is enabled. On a cold start nobody is connected
+     * yet and this does nothing; the first join takes care of it.</p>
+     *
+     * @return whether an announcement was actually sent
+     */
+    public boolean announceOnStartup() {
+        Optional<? extends Player> carrier = plugin.getServer().getOnlinePlayers().stream().findFirst();
+        if (carrier.isEmpty()) {
+            plugin.getLogger().info(
+                    "Waiting for the first player: the proxy can only be told about this server "
+                            + "over a player's connection.");
+            return false;
+        }
+        announce(carrier.get());
+        return true;
+    }
+
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        announce(event.getPlayer());
+    }
+
+    private void announce(Player carrier) {
         if (!shouldAnnounce()) {
             return;
         }
-        client.announce(event.getPlayer(), version).whenComplete((response, failure) -> {
+        client.announce(carrier, version).whenComplete((response, failure) -> {
             if (failure != null || response == null || !response.success()) {
                 // Most likely an older proxy, or none at all. Try again on the
                 // next join rather than giving up for good.
                 allowRetry();
                 plugin.getLogger().fine("The proxy did not acknowledge our announcement.");
-            } else {
-                plugin.getLogger().info("Announced to the proxy; /language is served from this server.");
+                return;
             }
+            // The backend cannot know its own name in velocity.toml, so the
+            // proxy sends it back with the acknowledgement.
+            String serverName = response.serverName();
+            plugin.getLogger().info(serverName.isEmpty()
+                    ? "Announced to the proxy; /language is served from this server."
+                    : "Announced to the proxy as '" + serverName + "'; /language is served from this server.");
         });
     }
 

@@ -24,14 +24,7 @@ duration-minutes-seconds: "<minutes> min <seconds> s"
 duration-seconds: "<seconds> s"
 
 # <language>
-language-current: "<gray>Tvůj jazyk je <gold><language></gold>.</gray>"
-# <languages>
-language-available: "<gray>Dostupné jazyky: <gold><languages></gold></gray>"
-# <language>
 language-changed: "<green>Tvůj jazyk je nyní <gold><language></gold>.</green>"
-# <language>
-language-unknown: "<red>Neznámý jazyk <gold><language></gold>.</red>"
-language-failed: "<red>Nepodařilo se uložit tvůj jazyk. Zkus to prosím později.</red>"
 
 # Zobrazeno ve výběru jazyka v doplňkovém pluginu.
 # Každý soubor pojmenovává sám sebe, takže každá položka je ve svém jazyce.

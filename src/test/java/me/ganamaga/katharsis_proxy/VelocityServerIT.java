@@ -87,7 +87,8 @@ class VelocityServerIT {
 
         assertLogged(log, "Registered /lobby -> server 'lobby'.");
         assertLogged(log, "Registered /lifesteal -> server 'lifesteal'.");
-        assertLogged(log, "Registered /language; a backend running the companion plugin will take it over.");
+        assertLogged(log, "No /language is registered on the proxy; the companion plugin provides the selector.");
+        assertNotLogged(log, "Registered /language");
         assertLogged(log, "Serving language requests on the 'katharsis:language' plugin message channel.");
         assertLogged(log, "Caching player languages for 10 minute(s) after disconnect.");
 
@@ -115,6 +116,12 @@ class VelocityServerIT {
 
     private void assertCleanShutdown(List<String> log) {
         assertLogged(log, "Closed the database connection pool.");
+    }
+
+    private void assertNotLogged(List<String> log, String fragment) {
+        List<String> offending = log.stream().filter(line -> line.contains(fragment)).toList();
+        assertTrue(offending.isEmpty(),
+                () -> "the proxy should not register a language command, but logged: " + offending);
     }
 
     private void assertLogged(List<String> log, String fragment) {

@@ -108,9 +108,18 @@ public final class LanguageChannelListener {
 
     // --- operations --------------------------------------------------------
 
+    /**
+     * Acknowledges a companion and tells it which server the proxy knows it as.
+     *
+     * <p>A backend cannot discover its own name in velocity.toml, so the reply
+     * carries it: that is the only way the companion's log can say which server
+     * it announced as.</p>
+     */
     private Response announce(Request request, ServerConnection source) {
-        companions.announce(source.getServerInfo().getName(), request.payload());
-        return request.success("");
+        String serverName = source.getServerInfo().getName();
+        companions.announce(serverName, request.payload());
+        return new Response(request.operation(), request.requestId(), request.uuid(), true,
+                "", LanguageChannel.ERROR_NONE, null, serverName);
     }
 
     private Response getLanguage(Request request, UUID playerId) {
@@ -169,7 +178,7 @@ public final class LanguageChannelListener {
                 new Menu(registry.template(language, MessageKey.MENU_TITLE),
                         registry.template(language, MessageKey.MENU_SELECT_HINT),
                         registry.template(language, MessageKey.MENU_CURRENT_HINT),
-                        entries));
+                        entries), null);
     }
 
     private Response store(Request request, UUID playerId, String language, boolean createIfMissing) {
@@ -244,6 +253,10 @@ public final class LanguageChannelListener {
         out.writeUTF(response.language());
         out.writeUTF(response.error());
 
+        if (response.serverName() != null) {
+            out.writeUTF(response.serverName());
+        }
+
         Menu menu = response.menu();
         if (menu != null) {
             out.writeUTF(menu.title());
@@ -266,7 +279,8 @@ public final class LanguageChannelListener {
     private record Request(String operation, String requestId, String uuid, String payload) {
 
         Response success(String language) {
-            return new Response(operation, requestId, uuid, true, language, LanguageChannel.ERROR_NONE, null);
+            return new Response(operation, requestId, uuid, true, language,
+                    LanguageChannel.ERROR_NONE, null, null);
         }
 
         Response failure(String error) {
@@ -278,12 +292,19 @@ public final class LanguageChannelListener {
     private record Menu(String title, String selectHint, String currentHint, Map<String, String> entries) {
     }
 
-    /** A response, echoing the request header so replies can be correlated. */
+    /**
+     * A response, echoing the request header so replies can be correlated.
+     *
+     * <p>{@code menu} and {@code serverName} are the per-operation extras, each
+     * appended after the six base fields and each present for exactly one
+     * operation.</p>
+     */
     private record Response(String operation, String requestId, String uuid,
-                            boolean success, String language, String error, Menu menu) {
+                            boolean success, String language, String error,
+                            Menu menu, String serverName) {
 
         static Response failed(String operation, String requestId, String uuid, String error) {
-            return new Response(operation, requestId, uuid, false, "", error, null);
+            return new Response(operation, requestId, uuid, false, "", error, null, null);
         }
     }
 }

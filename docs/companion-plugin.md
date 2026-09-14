@@ -9,32 +9,50 @@ clickable selector.
 |---|---|---|
 | Player languages | stores and caches them | never stores anything |
 | Translations | every string, in `lang/` | only two, for when the proxy is unreachable |
-| `/language` | text command, **dropped** once a companion announces | chest selector |
+| `/language` | **never registered** | chest selector |
 
 The split is deliberate: the companion holds no state and almost no text, so the
 two plugins cannot drift out of agreement about a player's language, and adding
 a language means editing the proxy's `lang/` directory only — every backend
 picks it up at once without being updated or restarted.
 
-## How the takeover works
+## How the proxy learns about a server
 
-1. A player joins a backend running the companion.
-2. The companion sends `announce` on the `katharsis:language` channel.
-3. The proxy records the server and **unregisters its own `/language`**.
-4. From then on `/language` is the companion's selector.
+The proxy registers no `/language` of its own at all — the companion owns the
+command outright, so there is no window where two implementations of the same
+name shadow each other.
 
-Two consequences follow from plugin messaging needing a player to carry a
-message:
+It still wants to know which backends are equipped, because a server *without*
+the companion has no selector at all. The companion tells it:
 
-- Until somebody joins a backend with the companion, the proxy's `/language`
-  is still the one players get. The changeover happens on the first join, not at
-  boot.
-- The companion re-announces on join, at most once a minute, so a proxy that
-  restarts learns about the server again without anyone restarting the backend.
+1. The companion sends `announce` on the `katharsis:language` channel.
+2. The proxy records the server and logs it:
+   `'lifesteal' runs the companion plugin 0.1 and serves the language selector.`
+3. The proxy replies with the name it knows that server by, and the companion
+   logs `Announced to the proxy as 'lifesteal'`. A backend cannot read its own
+   entry out of `velocity.toml`, so this is the only way its log can name the
+   server it is actually running as.
 
-The proxy never re-registers its command. **If only some of your backends run the
-companion, players on the others lose `/language` entirely** once any backend has
-announced. Either install the companion everywhere, or on none of them.
+### When the announcement is sent
+
+The companion announces **at startup** — but a plugin message can only travel on
+a player's connection, so "at startup" means as soon as there is a player to
+carry it:
+
+- Reloading the plugin on a server that already has players online announces
+  immediately.
+- On a cold start there is nobody to carry the message yet. The companion says
+  so in its log and the first join sends it.
+
+That is a Minecraft protocol constraint, not a design choice: there is no
+backend-to-proxy transport that works with zero players connected.
+
+The announcement then repeats on join, at most once a minute, so a proxy that
+restarts learns about the server again without anyone touching the backend.
+
+**If a backend does not run the companion, players on it have no way to change
+language** — there is no proxy-side fallback any more. Install the companion on
+every backend.
 
 ## The selector
 
@@ -135,9 +153,8 @@ aside if you want both at once.
    `katharsis_paper-<version>-mc26.jar` for 26.x.
 3. Start the proxy first, then the backends.
 
-Order does not actually matter — the companion announces on the first player
-join either way — but starting the proxy first means the changeover happens on
-the very first join.
+Order does not matter: the companion announces as soon as a player is connected,
+whichever started first.
 
 ## Configuration
 
