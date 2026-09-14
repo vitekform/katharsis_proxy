@@ -17,6 +17,7 @@ import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
+import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
@@ -38,6 +39,9 @@ public class Katharsis_proxy {
 
     /** How often expired language cache entries are reclaimed. */
     private static final long CACHE_SWEEP_MINUTES = 1L;
+
+    /** Dropped as soon as a backend announces the companion plugin. */
+    private static final String LANGUAGE_COMMAND = "language";
 
     @Inject
     private Logger logger;
@@ -151,9 +155,10 @@ public class Katharsis_proxy {
 
         CommandManager commandManager = proxy.getCommandManager();
         commandManager.register(
-                commandManager.metaBuilder("language").aliases("lang").plugin(this).build(),
+                commandManager.metaBuilder(LANGUAGE_COMMAND).aliases("lang").plugin(this).build(),
                 new LanguageCommand(proxy, this, logger, messages, players, languageCache));
-        logger.info("Registered /language.");
+        logger.info("Registered /{}; a backend running the companion plugin will take it over.",
+                LANGUAGE_COMMAND);
     }
 
     /**
@@ -161,9 +166,10 @@ public class Katharsis_proxy {
      * database is down, so callers get an explicit error instead of silence.
      */
     private void registerPluginMessaging() {
+        CompanionRegistry companions = new CompanionRegistry(proxy, logger, LANGUAGE_COMMAND);
         proxy.getChannelRegistrar().register(LanguageChannel.IDENTIFIER);
         proxy.getEventManager().register(this, new LanguageChannelListener(
-                proxy, logger, languageRegistry, database, players, languageCache));
+                proxy, logger, languageRegistry, messages, database, players, languageCache, companions));
         logger.info("Serving language requests on the '{}' plugin message channel.",
                 LanguageChannel.IDENTIFIER.getId());
     }

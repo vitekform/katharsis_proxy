@@ -12,16 +12,21 @@ import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.entity.Player;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
+import me.ganamaga.katharsis_proxy.i18n.MessageKey;
+import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
 
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Serves {@code get_language}, {@code set_language} and {@code clear_language}
- * over the {@link LanguageChannel#IDENTIFIER} plugin message channel.
+ * Serves the language API over the {@link LanguageChannel#IDENTIFIER} plugin
+ * message channel.
  *
  * <p>Only backend servers are answered. A message arriving from a player is
  * dropped, since a client could otherwise rewrite anyone's preferences.</p>
@@ -31,19 +36,23 @@ public final class LanguageChannelListener {
     private final ProxyServer proxy;
     private final Logger logger;
     private final LanguageRegistry registry;
+    private final Messages messages;
     private final DatabaseManager database;
     private final PlayerRepository players;
     private final PlayerLanguageCache cache;
+    private final CompanionRegistry companions;
 
     public LanguageChannelListener(ProxyServer proxy, Logger logger, LanguageRegistry registry,
-                                   DatabaseManager database, PlayerRepository players,
-                                   PlayerLanguageCache cache) {
+                                   Messages messages, DatabaseManager database, PlayerRepository players,
+                                   PlayerLanguageCache cache, CompanionRegistry companions) {
         this.proxy = proxy;
         this.logger = logger;
         this.registry = registry;
+        this.messages = messages;
         this.database = database;
         this.players = players;
         this.cache = cache;
+        this.companions = companions;
     }
 
     @Subscribe
@@ -62,28 +71,46 @@ public final class LanguageChannelListener {
 
         Request request = decode(event.getData());
         if (request == null) {
-            respond(source, new Response("", "", "", false, "", LanguageChannel.ERROR_MALFORMED_REQUEST));
+            respond(source, Response.failed("", "", "", LanguageChannel.ERROR_MALFORMED_REQUEST));
             return null;
         }
 
         // Off the event thread: the database must not stall message handling.
-        return EventTask.async(() -> respond(source, handle(request)));
+        return EventTask.async(() -> respond(source, handle(request, source)));
     }
 
-    private Response handle(Request request) {
+    private Response handle(Request request, ServerConnection source) {
+        return switch (request.operation()) {
+            case LanguageChannel.OP_ANNOUNCE -> announce(request, source);
+            case LanguageChannel.OP_GET -> forPlayer(request, this::getLanguage);
+            case LanguageChannel.OP_SET -> forPlayer(request, this::setLanguage);
+            case LanguageChannel.OP_CLEAR -> forPlayer(request, this::clearLanguage);
+            case LanguageChannel.OP_MENU -> forPlayer(request, this::menu);
+            default -> request.failure(LanguageChannel.ERROR_UNKNOWN_OPERATION);
+        };
+    }
+
+    /** Runs {@code action} once the request's uuid field has parsed. */
+    private Response forPlayer(Request request, PlayerAction action) {
         UUID playerId;
         try {
             playerId = UUID.fromString(request.uuid());
         } catch (IllegalArgumentException e) {
             return request.failure(LanguageChannel.ERROR_INVALID_UUID);
         }
+        return action.apply(request, playerId);
+    }
 
-        return switch (request.operation()) {
-            case LanguageChannel.OP_GET -> getLanguage(request, playerId);
-            case LanguageChannel.OP_SET -> setLanguage(request, playerId);
-            case LanguageChannel.OP_CLEAR -> clearLanguage(request, playerId);
-            default -> request.failure(LanguageChannel.ERROR_UNKNOWN_OPERATION);
-        };
+    @FunctionalInterface
+    private interface PlayerAction {
+        Response apply(Request request, UUID playerId);
+    }
+
+    // --- operations --------------------------------------------------------
+
+    private Response announce(Request request, ServerConnection source) {
+        companions.announce(source.getServerInfo().getName(), request.payload());
+        return request.success("");
     }
 
     private Response getLanguage(Request request, UUID playerId) {
@@ -109,36 +136,70 @@ public final class LanguageChannelListener {
     }
 
     private Response setLanguage(Request request, UUID playerId) {
-        String language = LanguageRegistry.normalise(request.language());
+        String language = LanguageRegistry.normalise(request.payload());
         if (language.isEmpty() || !registry.isKnown(language)) {
             return request.failure(LanguageChannel.ERROR_UNKNOWN_LANGUAGE);
         }
-        return store(request, playerId, language);
+        return store(request, playerId, language, true);
     }
 
     private Response clearLanguage(Request request, UUID playerId) {
         // "Cleared" means back to the configured default, so a player with no
         // row is already clear and none is created for them.
-        return store(request, playerId, registry.defaultLanguage());
+        return store(request, playerId, registry.defaultLanguage(), false);
     }
 
-    private Response store(Request request, UUID playerId, String language) {
+    /**
+     * Answers with everything the companion plugin's selector needs, in the
+     * player's own language, so the companion ships no translations of its own.
+     */
+    private Response menu(Request request, UUID playerId) {
+        Response current = getLanguage(request, playerId);
+        // An unknown player simply has not chosen yet: show them the default
+        // rather than refusing to open the menu.
+        String language = current.success() ? current.language() : registry.defaultLanguage();
+
+        Map<String, String> entries = new LinkedHashMap<>();
+        for (String code : registry.languages()) {
+            entries.put(code, registry.template(code, MessageKey.LANGUAGE_NAME));
+        }
+
+        return new Response(request.operation(), request.requestId(), request.uuid(), true,
+                language, LanguageChannel.ERROR_NONE,
+                new Menu(registry.template(language, MessageKey.MENU_TITLE),
+                        registry.template(language, MessageKey.MENU_SELECT_HINT),
+                        registry.template(language, MessageKey.MENU_CURRENT_HINT),
+                        entries));
+    }
+
+    private Response store(Request request, UUID playerId, String language, boolean createIfMissing) {
         if (!database.isAvailable()) {
             return request.failure(LanguageChannel.ERROR_DATABASE_UNAVAILABLE);
         }
         try {
-            if (!players.updateLanguage(playerId, language)
-                    && LanguageChannel.OP_SET.equals(request.operation())) {
+            if (!players.updateLanguage(playerId, language) && createIfMissing) {
                 // Setting a language for someone with no row yet, e.g. a player
                 // who has not joined since the plugin was installed.
                 players.createIfAbsent(playerId, language);
             }
             cacheFor(playerId, language);
+            confirmToPlayer(playerId, language);
             return request.success(language);
         } catch (SQLException | IllegalArgumentException e) {
             logger.error("{} failed for {}.", request.operation(), playerId, e);
             return request.failure(LanguageChannel.ERROR_DATABASE_ERROR);
         }
+    }
+
+    /**
+     * Tells the player their language changed, in the new language. Doing this
+     * here rather than in the companion keeps every translated string on the
+     * proxy, next to the language files.
+     */
+    private void confirmToPlayer(UUID playerId, String language) {
+        proxy.getPlayer(playerId).ifPresent(player -> player.sendMessage(
+                messages.prefixed(language, MessageKey.LANGUAGE_CHANGED,
+                        Placeholder.unparsed("language", language))));
     }
 
     /**
@@ -153,18 +214,25 @@ public final class LanguageChannelListener {
         }
     }
 
+    // --- wire format -------------------------------------------------------
+
     private Request decode(byte[] data) {
         try {
             ByteArrayDataInput in = ByteStreams.newDataInput(data);
             String operation = in.readUTF();
             String requestId = in.readUTF();
             String uuid = in.readUTF();
-            String language = LanguageChannel.OP_SET.equals(operation) ? in.readUTF() : "";
-            return new Request(operation, requestId, uuid, language);
+            String payload = carriesPayload(operation) ? in.readUTF() : "";
+            return new Request(operation, requestId, uuid, payload);
         } catch (IllegalStateException | IndexOutOfBoundsException e) {
             // Guava wraps a truncated buffer in an unchecked exception.
             return null;
         }
+    }
+
+    /** Operations whose request carries a fourth field. */
+    private static boolean carriesPayload(String operation) {
+        return LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_ANNOUNCE.equals(operation);
     }
 
     private void respond(ServerConnection source, Response response) {
@@ -176,26 +244,46 @@ public final class LanguageChannelListener {
         out.writeUTF(response.language());
         out.writeUTF(response.error());
 
+        Menu menu = response.menu();
+        if (menu != null) {
+            out.writeUTF(menu.title());
+            out.writeUTF(menu.selectHint());
+            out.writeUTF(menu.currentHint());
+            out.writeInt(menu.entries().size());
+            for (Map.Entry<String, String> entry : menu.entries().entrySet()) {
+                out.writeUTF(entry.getKey());
+                out.writeUTF(entry.getValue());
+            }
+        }
+
         if (!source.sendPluginMessage(LanguageChannel.IDENTIFIER, out.toByteArray())) {
             logger.warn("Could not answer {} on {}: the server connection is gone.",
                     source.getServerInfo().getName(), LanguageChannel.IDENTIFIER.getId());
         }
     }
 
-    /** A decoded request. */
-    private record Request(String operation, String requestId, String uuid, String language) {
+    /** A decoded request. {@code payload} is the optional fourth field. */
+    private record Request(String operation, String requestId, String uuid, String payload) {
 
         Response success(String language) {
-            return new Response(operation, requestId, uuid, true, language, LanguageChannel.ERROR_NONE);
+            return new Response(operation, requestId, uuid, true, language, LanguageChannel.ERROR_NONE, null);
         }
 
         Response failure(String error) {
-            return new Response(operation, requestId, uuid, false, "", error);
+            return Response.failed(operation, requestId, uuid, error);
         }
+    }
+
+    /** The selector payload, present only on a {@code get_language_menu} reply. */
+    private record Menu(String title, String selectHint, String currentHint, Map<String, String> entries) {
     }
 
     /** A response, echoing the request header so replies can be correlated. */
     private record Response(String operation, String requestId, String uuid,
-                            boolean success, String language, String error) {
+                            boolean success, String language, String error, Menu menu) {
+
+        static Response failed(String operation, String requestId, String uuid, String error) {
+            return new Response(operation, requestId, uuid, false, "", error, null);
+        }
     }
 }

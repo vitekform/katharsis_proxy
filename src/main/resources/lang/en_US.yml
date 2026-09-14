@@ -34,3 +34,10 @@ language-changed: "<green>Your language is now <gold><language></gold>.</green>"
 # <language>
 language-unknown: "<red>Unknown language <gold><language></gold>.</red>"
 language-failed: "<red>Could not save your language. Please try again later.</red>"
+
+# Shown in the companion plugin's language selector.
+# Each language file names itself, so every entry reads natively.
+language-name: "English (US)"
+menu-title: "<dark_gray>Select your language"
+menu-select-hint: "<gray>Click to use this language."
+menu-current-hint: "<green>You are using this language."

@@ -26,6 +26,21 @@ public final class LanguageChannel {
     /** Resets a player's language to the configured default. */
     public static final String OP_CLEAR = "clear_language";
 
+    /**
+     * Tells the proxy this backend runs the companion plugin and owns the
+     * language selector. Request carries the companion's version in the
+     * optional fourth field; the proxy drops its own /language on the first one.
+     */
+    public static final String OP_ANNOUNCE = "announce";
+
+    /**
+     * Everything the companion plugin needs to draw its selector: the player's
+     * current language, the menu's strings, and every available language with
+     * its own name. Response carries the extra fields documented in
+     * {@code docs/plugin-messaging.md}.
+     */
+    public static final String OP_MENU = "get_language_menu";
+
     /** Sent as the error field of a successful response. */
     public static final String ERROR_NONE = "";
 

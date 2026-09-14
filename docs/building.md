@@ -7,6 +7,14 @@
 - Network access on the first build, to fetch dependencies and — for the
   integration test — a Velocity release
 
+This repository holds two plugins, built separately:
+
+- the root project — the Velocity proxy plugin
+- `paper/` — the Paper companion, see [companion-plugin.md](companion-plugin.md)
+
+They share a wire protocol, not code, so neither depends on the other at build
+time.
+
 ## Commands
 
 ```bash
@@ -21,6 +29,12 @@ That is the full gate, and it is exactly what CI runs:
 | `test`              | Runs the unit tests (surefire) and writes the JaCoCo report          |
 | `package`           | Builds the jar, then shades and relocates HikariCP, PostgreSQL and H2 |
 | `integration-test`  | Boots the shaded jar on a real Velocity proxy (failsafe)              |
+
+And for the companion:
+
+```bash
+mvn -f paper/pom.xml verify
+```
 
 Other useful invocations:
 
@@ -49,6 +63,22 @@ Unit tests cover the pieces in isolation, against the **unrelocated** classes:
 - `LanguageChannelListenerTest` — the plugin message protocol, driving real
   `PluginMessageEvent`s through the listener
 
+The companion's own suite is smaller, because its logic is deliberately thin:
+
+- `ProtocolCodecTest` — the wire format, including a **golden-bytes** case that
+  pins the exact encoding the proxy must accept
+- `LanguageMenuModelTest` — selector layout: centring, row growth, the double
+  chest cap, and which entry is marked current
+- `PluginDescriptorTest` — `plugin.yml` itself: that `api-version` matches the
+  `apiVersioning.json` shipped inside the paper-api jar, that the main class
+  exists, and that Maven filtered the version placeholder
+
+The golden-bytes case is asserted on both sides. The companion asserts it
+*writes* those bytes; the proxy's `LanguageChannelListenerTest` feeds the same
+literal bytes through its listener and asserts it *understands* them. The two
+plugins repeat the protocol constants rather than sharing a module, so this pair
+of tests is what stops them drifting apart.
+
 `VelocityServerIT` is the only test that runs the artifact a server owner will
 actually install. It downloads the Velocity release named by
 `velocity.test.version`, verifies its SHA-256, writes a `velocity.toml` on a free
@@ -66,20 +96,29 @@ this so the download can be cached between runs.
 
 ## Output
 
-- `target/katharsis_proxy-<version>.jar` — the shaded plugin, the one to install
+- `target/katharsis_proxy-<version>.jar` — the shaded proxy plugin, the one to install
 - `target/original-katharsis_proxy-<version>.jar` — pre-shade, not shipped
+- `paper/target/katharsis_paper-<version>.jar` — the companion, for each backend
 - `target/site/jacoco/` — coverage report
 - `target/surefire-reports/`, `target/failsafe-reports/` — JUnit XML
+
+There is **no equivalent real-server test for the companion**. Booting Paper
+needs Mojang's CDN, which was unreachable from the machine this was developed on,
+so such a test could not be run and was not written rather than shipped unproven.
+`PluginDescriptorTest` covers the part that would otherwise only fail at load
+time — it already caught an `api-version` that did not match the compiled API.
 
 ## Pipeline
 
 `azure-pipelines.yml` runs on pushes and pull requests to `master`:
 
-1. **Build** — restores the Maven and Velocity caches, runs `mvn clean verify`,
-   publishes unit and integration test results plus coverage, and uploads the
-   shaded jar as the `plugin` pipeline artifact.
-2. **Publish** — master only: retains that jar as the `katharsis-proxy` build
-   artifact.
+1. **Build** — two independent jobs:
+   - *Velocity plugin*: restores the Maven and Velocity caches, runs
+     `mvn clean verify`, publishes unit and integration results plus coverage,
+     and uploads the shaded jar as `proxy-plugin`.
+   - *Paper companion*: runs `mvn -f paper/pom.xml clean verify`, publishes its
+     results and coverage, and uploads its jar as `companion-plugin`.
+2. **Publish** — master only: retains both jars as build artifacts.
 
 Test results are published with `condition: succeededOrFailed()`, so a failing
 run still shows which tests failed rather than only that the build broke.

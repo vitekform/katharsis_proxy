@@ -1,0 +1,12 @@
+name: katharsis_paper
+version: '${project.version}'
+main: me.ganamaga.katharsis_paper.KatharsisPaper
+api-version: '${paper.api.version}'
+authors: [vitekform, ganamaga]
+description: Backend companion for the Katharsis Velocity proxy plugin.
+
+commands:
+  language:
+    description: Open the language selector.
+    aliases: [lang]
+    usage: /language

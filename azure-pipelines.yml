@@ -1,8 +1,12 @@
-# Build pipeline for the Katharsis Velocity proxy plugin.
+# Build pipeline for the Katharsis plugins.
 #
-#   Build stage    - compiles, runs the unit tests, shades the jar, then boots
-#                    the shaded jar on a real Velocity proxy (VelocityServerIT).
-#   Publish stage  - keeps the plugin jar as a build artifact, master only.
+#   Proxy job      - compiles the Velocity plugin, runs its unit tests, shades
+#                    the jar, then boots it on a real Velocity proxy.
+#   Companion job  - compiles the Paper companion and runs its unit tests.
+#   Publish stage  - keeps both jars as build artifacts, master only.
+#
+# The two jobs are independent: the plugins share a wire protocol, not code, and
+# each side pins the other's exact bytes in its own tests.
 
 name: $(Date:yyyyMMdd)$(Rev:.r)
 
@@ -22,6 +26,7 @@ variables:
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   # Lives outside target/ so `mvn clean` cannot delete the cached download.
   VELOCITY_CACHE_FOLDER: $(Pipeline.Workspace)/.velocity
+  PAPER_CACHE_FOLDER: $(Pipeline.Workspace)/.paper
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) -Xmx1024m'
   # Shared by the compiler release flag and the agent's JDK.
   JDK_VERSION: '21'
@@ -30,8 +35,8 @@ stages:
   - stage: Build
     displayName: Build and test
     jobs:
-      - job: Verify
-        displayName: mvn verify
+      - job: Proxy
+        displayName: Velocity plugin
         pool:
           vmImage: ubuntu-latest
         # The integration test downloads Velocity and boots a JVM, so allow
@@ -79,7 +84,7 @@ stages:
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: '**/surefire-reports/TEST-*.xml'
-              testRunTitle: 'Unit tests (JDK $(JDK_VERSION))'
+              testRunTitle: 'Proxy unit tests (JDK $(JDK_VERSION))'
               failTaskOnFailedTests: true
 
           - task: PublishTestResults@2
@@ -88,7 +93,7 @@ stages:
             inputs:
               testResultsFormat: JUnit
               testResultsFiles: '**/failsafe-reports/TEST-*.xml'
-              testRunTitle: 'Integration tests (real Velocity server)'
+              testRunTitle: 'Proxy integration tests (real Velocity server)'
               failTaskOnFailedTests: true
 
           - task: PublishCodeCoverageResults@2
@@ -109,8 +114,66 @@ stages:
               targetFolder: '$(Build.ArtifactStagingDirectory)'
 
           - publish: $(Build.ArtifactStagingDirectory)
-            artifact: plugin
-            displayName: Publish the plugin jar
+            artifact: proxy-plugin
+            displayName: Publish the proxy jar
+
+      - job: Companion
+        displayName: Paper companion
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 20
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            displayName: Checkout
+
+          - task: JavaToolInstaller@0
+            displayName: Use JDK $(JDK_VERSION)
+            inputs:
+              versionSpec: $(JDK_VERSION)
+              jdkArchitectureOption: x64
+              jdkSourceOption: PreInstalled
+
+          - task: Cache@2
+            displayName: Restore Maven repository
+            inputs:
+              key: 'maven | "$(Agent.OS)" | paper/pom.xml'
+              restoreKeys: |
+                maven | "$(Agent.OS)"
+                maven
+              path: $(MAVEN_CACHE_FOLDER)
+
+          - script: |
+              set -euo pipefail
+              mvn -B -ntp -f paper/pom.xml clean verify
+            displayName: Build and unit test the companion
+
+          - task: PublishTestResults@2
+            displayName: Publish companion test results
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: 'paper/target/surefire-reports/TEST-*.xml'
+              testRunTitle: 'Companion unit tests (JDK $(JDK_VERSION))'
+              failTaskOnFailedTests: true
+
+          - task: PublishCodeCoverageResults@2
+            displayName: Publish companion code coverage
+            condition: succeededOrFailed()
+            inputs:
+              summaryFileLocation: '$(Build.SourcesDirectory)/paper/target/site/jacoco/jacoco.xml'
+              pathToSources: '$(Build.SourcesDirectory)/paper/src/main/java'
+
+          - task: CopyFiles@2
+            displayName: Stage the companion jar
+            inputs:
+              sourceFolder: '$(Build.SourcesDirectory)/paper/target'
+              contents: 'katharsis_paper-*.jar'
+              targetFolder: '$(Build.ArtifactStagingDirectory)'
+
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: companion-plugin
+            displayName: Publish the companion jar
 
   - stage: Publish
     displayName: Publish artifact
@@ -118,18 +181,28 @@ stages:
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
       - job: Artifact
-        displayName: Retain the plugin jar
+        displayName: Retain both jars
         pool:
           vmImage: ubuntu-latest
         steps:
           - checkout: none
 
           - download: current
-            artifact: plugin
-            displayName: Download the plugin jar
+            artifact: proxy-plugin
+            displayName: Download the proxy jar
+
+          - download: current
+            artifact: companion-plugin
+            displayName: Download the companion jar
 
           - task: PublishBuildArtifacts@1
-            displayName: Retain as a build artifact
+            displayName: Retain the proxy jar
             inputs:
-              pathToPublish: '$(Pipeline.Workspace)/plugin'
+              pathToPublish: '$(Pipeline.Workspace)/proxy-plugin'
               artifactName: katharsis-proxy
+
+          - task: PublishBuildArtifacts@1
+            displayName: Retain the companion jar
+            inputs:
+              pathToPublish: '$(Pipeline.Workspace)/companion-plugin'
+              artifactName: katharsis-companion

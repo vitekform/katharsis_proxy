@@ -49,7 +49,24 @@ public enum MessageKey {
     LANGUAGE_UNKNOWN("language-unknown"),
 
     /** Placeholders: none. */
-    LANGUAGE_FAILED("language-failed");
+    LANGUAGE_FAILED("language-failed"),
+
+    /**
+     * This language's own name, as shown in the companion plugin's selector.
+     * Each language file names itself, so the menu reads natively in every
+     * entry rather than listing everything in one language.
+     * Placeholders: none.
+     */
+    LANGUAGE_NAME("language-name"),
+
+    /** Title of the companion plugin's selector. Placeholders: none. */
+    MENU_TITLE("menu-title"),
+
+    /** Lore on a language the player may pick. Placeholders: none. */
+    MENU_SELECT_HINT("menu-select-hint"),
+
+    /** Lore on the language the player already uses. Placeholders: none. */
+    MENU_CURRENT_HINT("menu-current-hint");
 
     private final String key;
 

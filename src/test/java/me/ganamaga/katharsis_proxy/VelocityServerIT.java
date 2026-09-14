@@ -87,7 +87,7 @@ class VelocityServerIT {
 
         assertLogged(log, "Registered /lobby -> server 'lobby'.");
         assertLogged(log, "Registered /lifesteal -> server 'lifesteal'.");
-        assertLogged(log, "Registered /language.");
+        assertLogged(log, "Registered /language; a backend running the companion plugin will take it over.");
         assertLogged(log, "Serving language requests on the 'katharsis:language' plugin message channel.");
         assertLogged(log, "Caching player languages for 10 minute(s) after disconnect.");
 

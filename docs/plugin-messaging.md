@@ -3,11 +3,13 @@
 Backend servers can read and change a player's language through the
 `katharsis:language` plugin message channel. Three operations are exposed:
 
-| Operation         | Effect                                                           |
-|-------------------|------------------------------------------------------------------|
-| `get_language`    | Reads the player's language.                                      |
-| `set_language`    | Stores a new language for the player.                             |
-| `clear_language`  | Resets the player's language to the configured `default-language`.|
+| Operation           | Effect                                                            |
+|---------------------|-------------------------------------------------------------------|
+| `get_language`      | Reads the player's language.                                       |
+| `set_language`      | Stores a new language for the player.                              |
+| `clear_language`    | Resets the player's language to the configured `default-language`. |
+| `get_language_menu` | Everything needed to draw a language selector, already translated. |
+| `announce`          | Declares that this backend owns `/language`.                       |
 
 Every request gets exactly one response on the same channel.
 
@@ -33,7 +35,7 @@ in the order given — there is no framing beyond the field order.
 | 1 | `operation` | UTF      | `get_language`, `set_language` or `clear_language`         |
 | 2 | `requestId` | UTF      | Free-form, echoed back so you can correlate. May be empty. |
 | 3 | `uuid`      | UTF      | Target player, canonical dashed form                       |
-| 4 | `language`  | UTF      | **`set_language` only.** Omit it for the other operations. |
+| 4 | `payload`   | UTF      | Present for **`set_language`** (the language code) and **`announce`** (the sender's version). Omit it for every other operation. |
 
 ### Response
 
@@ -45,6 +47,19 @@ in the order given — there is no framing beyond the field order.
 | 4 | `success`   | boolean  | `true` when the operation was applied                         |
 | 5 | `language`  | UTF      | Resulting language on success, empty string on failure        |
 | 6 | `error`     | UTF      | Error code on failure, empty string on success                |
+
+A successful `get_language_menu` reply appends these fields after `error`:
+
+| # | Field         | Type    | Notes                                                  |
+|---|---------------|---------|--------------------------------------------------------|
+| 7 | `title`       | UTF     | Menu title, a MiniMessage template                      |
+| 8 | `selectHint`  | UTF     | Lore for a language the player may pick                 |
+| 9 | `currentHint` | UTF     | Lore for the language the player already uses           |
+| 10| `count`       | int     | How many languages follow                               |
+| 11| *entries*     | UTF × 2 | `count` pairs of language code and its own display name |
+
+No other operation appends anything, so a reader that only handles the six base
+fields keeps working.
 
 When a request cannot be decoded at all, fields 1–3 come back as empty strings
 and `error` is `malformed_request`.
@@ -69,10 +84,46 @@ player has no row yet, one is created.
 The change takes effect immediately — the player's next message from the proxy
 uses the new language, without a reconnect.
 
+If the player is online, **the proxy sends them the confirmation message itself**,
+in their new language. A caller does not need to say anything, and should not:
+the proxy owns the translated strings. Nothing is sent for an offline player.
+
+### `get_language_menu`
+
+Returns the player's current language in the `language` field, plus the menu's
+title and lore **already translated into that language**, and every available
+language paired with its own name — `cs_CZ` comes back as `Čeština`, not as
+"Czech". A caller can therefore draw a complete selector without shipping a
+single translated string of its own.
+
+A player who has never chosen a language is not an error here: the reply
+succeeds and reports the configured default, so the menu still opens.
+
+### `announce`
+
+Tells the proxy that this backend runs the companion plugin and provides the
+language selector itself. On the first announcement from any backend, **the
+proxy unregisters its own `/language`**, so players get one interface instead of
+two that disagree.
+
+The `uuid` field is ignored — no player is involved — but it must still be
+present; send the nil UUID. The fourth field carries the sender's version and
+appears in the proxy log.
+
+Two consequences worth knowing:
+
+- A backend can only announce once a player is connected to it, because a plugin
+  message needs a player to travel on. Until then the proxy's `/language` is
+  still registered.
+- The proxy does not put its command back. Once any backend has announced,
+  players on backends *without* the companion have no `/language` until the
+  proxy restarts.
+
 ### `clear_language`
 
 Sets the player's language back to the configured `default-language` and
-refreshes the cache. The response carries that default in the `language` field.
+refreshes the cache. The response carries that default in the `language` field,
+and an online player is told, exactly as for `set_language`.
 
 A player with no row is already "cleared", so **no row is created for them** and
 the call still reports success.

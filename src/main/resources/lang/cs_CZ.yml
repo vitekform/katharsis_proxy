@@ -32,3 +32,10 @@ language-changed: "<green>Tvůj jazyk je nyní <gold><language></gold>.</green>"
 # <language>
 language-unknown: "<red>Neznámý jazyk <gold><language></gold>.</red>"
 language-failed: "<red>Nepodařilo se uložit tvůj jazyk. Zkus to prosím později.</red>"
+
+# Zobrazeno ve výběru jazyka v doplňkovém pluginu.
+# Každý soubor pojmenovává sám sebe, takže každá položka je ve svém jazyce.
+language-name: "Čeština"
+menu-title: "<dark_gray>Vyber si jazyk"
+menu-select-hint: "<gray>Klikni pro použití tohoto jazyka."
+menu-current-hint: "<green>Tento jazyk právě používáš."
