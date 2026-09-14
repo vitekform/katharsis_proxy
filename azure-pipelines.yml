@@ -1,5 +1,7 @@
 # Build pipeline for the Katharsis plugins.
 #
+#   Cleanup stage  - runs first, and deletes the oldest stored runs whenever this
+#                    pipeline's artifacts add up to more than the size budget.
 #   Proxy job      - compiles the Velocity plugin, runs its unit tests, shades
 #                    the jar, then boots it on a real Velocity proxy.
 #   Companion job  - builds the Paper companion for the 1.21.x line on JDK 21,
@@ -39,10 +41,48 @@ variables:
   # not preinstall it, so that job fetches one.
   COMPANION_26_JDK_VERSION: '25'
   JDK_INSTALL_DIR: $(Pipeline.Workspace)/.jdk
+  # Total size of the build artifacts this pipeline is allowed to keep. The
+  # cleanup stage deletes the oldest runs until the stored total fits.
+  ARTIFACT_BUDGET_BYTES: 1073741824
+  # Newest runs held back from deletion no matter what, so a cleanup can never
+  # leave the pipeline without a downloadable jar.
+  ARTIFACT_KEEP_BUILDS: 1
+  # Set to true to log what would be deleted without deleting anything.
+  ARTIFACT_DRY_RUN: false
 
 stages:
+  - stage: Cleanup
+    displayName: Clean up old artifacts
+    jobs:
+      - job: PruneArtifacts
+        displayName: Prune artifacts over the size budget
+        pool:
+          vmImage: ubuntu-latest
+        timeoutInMinutes: 15
+        steps:
+          - checkout: self
+            fetchDepth: 1
+            displayName: Checkout
+
+          - script: |
+              set -euo pipefail
+              ./ci/cleanup-artifacts.sh
+            displayName: Delete the oldest runs over the artifact budget
+            # Pruning is housekeeping. A permissions change or a transient API
+            # error must never stop the plugins from building, so this reports
+            # as a warning rather than failing the stage.
+            continueOnError: true
+            env:
+              # Every other System.*/Build.* value the script reads is already in
+              # the environment. This one is secret, so it has to be mapped.
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              ARTIFACT_BUDGET_BYTES: $(ARTIFACT_BUDGET_BYTES)
+              ARTIFACT_KEEP_BUILDS: $(ARTIFACT_KEEP_BUILDS)
+              ARTIFACT_DRY_RUN: $(ARTIFACT_DRY_RUN)
+
   - stage: Build
     displayName: Build and test
+    dependsOn: Cleanup
     jobs:
       - job: Proxy
         displayName: Velocity plugin
