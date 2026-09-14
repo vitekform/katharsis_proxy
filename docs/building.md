@@ -7,9 +7,9 @@
 - Network access on the first build, to fetch dependencies and — for the
   integration test — a Velocity release
 
-JDK 25 or newer is needed for one optional task: checking the companion against
-the newest Paper APIs, which are Java 25 artifacts. See
-[companion-plugin.md](companion-plugin.md#checking-the-whole-range).
+**JDK 25** is needed for the companion's 26.x variant, because every 26.x Paper
+API jar is a Java 25 artifact that an older `javac` cannot read. The 1.21.x
+variant, the proxy and all the tests build on JDK 21.
 
 This repository holds two plugins, built separately:
 
@@ -34,11 +34,20 @@ That is the full gate, and it is exactly what CI runs:
 | `package`           | Builds the jar, then shades and relocates HikariCP, PostgreSQL and H2 |
 | `integration-test`  | Boots the shaded jar on a real Velocity proxy (failsafe)              |
 
-And for the companion:
+And for the companion, once per Paper line:
 
 ```bash
 mvn -f paper/pom.xml verify
 ```
+
+```bash
+mvn -f paper/pom.xml -P paper-26 verify
+```
+
+The first needs JDK 21 and produces the 1.21.x jar; the second needs JDK 25 and
+produces `katharsis_paper-<version>-mc26.jar`. See
+[companion-plugin.md](companion-plugin.md#supported-versions) for why they are
+separate builds.
 
 Other useful invocations:
 
@@ -103,7 +112,8 @@ this so the download can be cached between runs.
 
 - `target/katharsis_proxy-<version>.jar` — the shaded proxy plugin, the one to install
 - `target/original-katharsis_proxy-<version>.jar` — pre-shade, not shipped
-- `paper/target/katharsis_paper-<version>.jar` — the companion, for each backend
+- `paper/target/katharsis_paper-<version>.jar` — the companion for Paper 1.21.x
+- `paper/target/katharsis_paper-<version>-mc26.jar` — the companion for Paper 26.x
 - `target/site/jacoco/` — coverage report
 - `target/surefire-reports/`, `target/failsafe-reports/` — JUnit XML
 
@@ -121,14 +131,18 @@ time — it already caught an `api-version` that did not match the compiled API.
    - *Velocity plugin*: restores the Maven and Velocity caches, runs
      `mvn clean verify`, publishes unit and integration results plus coverage,
      and uploads the shaded jar as `proxy-plugin`.
-   - *Paper companion*: runs `mvn -f paper/pom.xml clean verify`, then
-     `compat-check.sh` to recompile the sources against every supported Paper
-     API, publishes its results and coverage, and uploads its jar as
-     `companion-plugin`. On the agent's JDK 21 the check covers the 1.21.x half
-     of the range and reports the 26.x versions as skipped.
-2. **Publish** — master only: retains both jars as build artifacts.
+   - *Paper companion (1.21.x)*: on the preinstalled JDK 21, runs
+     `mvn -f paper/pom.xml clean verify`, then `compat-check.sh`. That check
+     covers the 1.21.x half of the range and reports the 26.x versions as
+     skipped, since JDK 21 cannot read them. Uploads `companion-plugin`.
+   - *Paper companion (26.x)*: fetches a JDK 25, builds with `-P paper-26`, and
+     runs `compat-check.sh --strict` — on that JDK nothing can be skipped, so
+     this is where the **full** range is proven. Uploads `companion-plugin-26`.
+2. **Publish** — master only: retains all three jars as build artifacts.
 
-Both jobs use the agent's preinstalled JDK 21.
+The proxy and 1.21.x companion jobs use the agent's preinstalled JDK 21. Only
+the 26.x job fetches a JDK, so a problem there cannot stop the other artifacts
+being produced.
 
 Test results are published with `condition: succeededOrFailed()`, so a failing
 run still shows which tests failed rather than only that the build broke.

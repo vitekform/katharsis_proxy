@@ -19,16 +19,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Guards the things that decide whether the plugin loads at all, and on which
  * servers.
  *
- * <p>The companion ships one jar for Paper 1.21.1 through 26.2. That only works
- * because it is compiled against the oldest API in the range and emits bytecode
- * the oldest server can read. Both are easy to break by "upgrading" a version
- * property, and neither would fail any other test — so they are asserted
- * here.</p>
+ * <p>The companion ships one jar per Paper line, each compiled against the
+ * oldest API in its line so it runs on every release of that line. The build
+ * variant is chosen by a Maven profile, and these tests check the variant being
+ * built is internally consistent: that the bytecode matches the JDK its line
+ * needs, that the API compiled against really is the oldest one claimed, and
+ * that {@code api-version} names that same minimum.</p>
+ *
+ * <p>All three are easy to break by "upgrading" a version property, and none
+ * would fail any other test.</p>
  */
 class PluginDescriptorTest {
 
-    /** Class file major version for Java 21, the floor of the supported range. */
-    private static final int JAVA_21_CLASS_FILE = 65;
+    /** A class file's major version is its Java release plus this. */
+    private static final int CLASS_FILE_OFFSET = 44;
 
     private static String property(String name) {
         String value = System.getProperty(name);
@@ -51,17 +55,20 @@ class PluginDescriptorTest {
     }
 
     @Test
-    @DisplayName("the jar is Java 21 bytecode, so the oldest supported server can load it")
-    void bytecodeTargetsTheOldestSupportedServer() throws IOException {
+    @DisplayName("the bytecode matches the Java release this variant's servers run")
+    void bytecodeMatchesTheTargetedRelease() throws IOException {
+        int release = Integer.parseInt(property("katharsis.java.release"));
+
         try (InputStream in = PluginDescriptorTest.class.getClassLoader()
                 .getResourceAsStream("me/ganamaga/katharsis_paper/KatharsisPaper.class")) {
             assertNotNull(in, "the plugin class should be on the test classpath");
             byte[] header = in.readNBytes(8);
 
             int major = ((header[6] & 0xFF) << 8) | (header[7] & 0xFF);
-            assertEquals(JAVA_21_CLASS_FILE, major,
-                    "compiling against a newer Paper API raises the bytecode level and stops "
-                            + "1.21.x servers loading the plugin at all");
+            assertEquals(release + CLASS_FILE_OFFSET, major,
+                    () -> "the " + property("katharsis.paper.variant") + " variant must emit Java "
+                            + release + " bytecode; anything newer stops its oldest servers loading "
+                            + "the plugin at all");
         }
     }
 
@@ -72,13 +79,13 @@ class PluginDescriptorTest {
         String minimum = property("katharsis.paper.supported.min");
 
         assertEquals(property("katharsis.paper.api.version"), declared, "plugin.yml tracks the pom");
-        assertTrue(minimum.startsWith(declared + "."),
-                () -> "api-version " + declared + " should be the line of the minimum supported "
-                        + minimum + ", since that is the oldest server this jar targets");
+        assertTrue(minimum.equals(declared) || minimum.startsWith(declared + "."),
+                () -> "api-version " + declared + " should name the minimum supported server "
+                        + minimum + ", or the line it belongs to");
     }
 
     @Test
-    @DisplayName("the API compiled against is the oldest supported one")
+    @DisplayName("the API compiled against is the oldest this variant claims to support")
     void compiledAgainstTheOldestApi() {
         String compiledAgainst = property("katharsis.paper.version");
         String minimum = property("katharsis.paper.supported.min");
@@ -86,8 +93,17 @@ class PluginDescriptorTest {
         assertTrue(compiledAgainst.startsWith(minimum),
                 () -> "built against " + compiledAgainst + " but claiming to support " + minimum
                         + " and up; a jar cannot run on a server older than the API it was built on");
-        assertEquals("21", property("katharsis.java.release"),
-                "the 1.21.x line runs on Java 21, so that is the target");
+    }
+
+    @Test
+    @DisplayName("the two variants stay distinguishable on disk")
+    void variantsAreNamedApart() {
+        String variant = property("katharsis.paper.variant");
+
+        assertTrue(variant.equals("1.21.x") || variant.equals("26.x"),
+                () -> "unexpected variant: " + variant);
+        assertEquals("1.21.x".equals(variant) ? "21" : "25", property("katharsis.java.release"),
+                "the 1.21.x line runs on Java 21 and the 26.x line on Java 25");
     }
 
     @Test

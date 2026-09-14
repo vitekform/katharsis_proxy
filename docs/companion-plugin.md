@@ -54,31 +54,48 @@ the proxy is unreachable rather than being left with a frozen command.
 
 ## Supported versions
 
-One jar covers **Paper 1.21.1 through 26.2**.
+The same sources are built twice, once per Paper line, because the two lines
+need different JDKs:
 
-That works because the companion is compiled against the *oldest* API in the
-range, not the newest. A plugin built against an old API runs on newer servers;
-the reverse never works. Two things follow, and both are enforced by tests:
+| Variant | Jar | Built against | Bytecode | `api-version` | Runs on |
+|---|---|---|---|---|---|
+| default | `katharsis_paper-<v>.jar` | paper-api 1.21.1 | Java 21 | `1.21` | Paper 1.21.1 – 1.21.11 |
+| `-P paper-26` | `katharsis_paper-<v>-mc26.jar` | paper-api 26.1.2 | Java 25 | `26.1.2` | Paper 26.1.2 – 26.2 |
 
-- **`paper.version` in `paper/pom.xml` is the oldest supported API**, currently
-  `1.21.1-R0.1-SNAPSHOT`. Bumping it to the newest Paper silently breaks every
-  older server.
-- **The jar is Java 21 bytecode.** Paper's 1.21.x API is a Java 21 artifact;
-  the 26.x line is Java 25. Compiling against 26.x would emit class files a
-  1.21.x server cannot load at all.
+Each variant is compiled against the **oldest** API in its line, which is what
+lets one jar cover the whole line: a plugin built against an old API runs on
+newer servers, never the reverse.
 
-`PluginDescriptorTest` asserts both — it reads the compiled class file's own
-version — so an accidental upgrade fails the build with an explanation rather
-than shipping a jar that only works on new servers.
+Install the jar matching your server's line. The 1.21.x jar is also *source and
+bytecode* compatible with 26.x servers — Java 25 runs Java 21 bytecode, and
+`compat-check.sh` proves the API surface exists there — so it can serve as a
+single universal jar if you would rather ship one. The 26.x variant exists
+because it declares a native `api-version` instead of relying on the 26.x line
+still accepting the legacy `1.21` value, and because it leaves room for 26-only
+API later.
 
-`api-version` in `plugin.yml` is `1.21`: the *minimum* server, which is what the
-field is for.
+### Why these are separate builds
+
+Every 1.21.x Paper API jar is a Java 21 artifact; every 26.x one is Java 25.
+A JDK cannot read class files newer than itself, so the 26.x variant simply
+cannot be compiled on JDK 21 — `javac` reports every Bukkit type as
+`cannot find symbol`. The build checks the JDK up front and says so:
+
+> The 26.x variant is built against paper-api 26.1.2.build.74-stable, whose class
+> files need JDK 25 or newer to read. Build it with that JDK, or drop
+> `-P paper-26` to build the 1.21.x variant instead.
+
+`PluginDescriptorTest` then asserts the variant that was built is internally
+consistent: the emitted bytecode matches the Java release its line runs, the API
+compiled against really is the oldest one claimed, and `api-version` names that
+same minimum. Bumping a version property without meaning to fails the build with
+an explanation.
 
 ### Checking the whole range
 
 Compiling against the oldest API proves nothing about whether those methods
 still exist later on. `paper/compat-check.sh` recompiles the sources against
-every Paper API release in the range and reports each one:
+every Paper API release across both lines and reports each one:
 
 ```bash
 ./paper/compat-check.sh
@@ -86,8 +103,8 @@ every Paper API release in the range and reports each one:
 
 A version whose bytecode the running JDK cannot read is skipped with a notice
 rather than failing, so this is useful on JDK 21 even though it cannot cover the
-26.x half. Before a release, run it on JDK 25 or newer with `--strict`, which
-turns any skipped version into a failure:
+26.x half. On JDK 25 or newer, `--strict` turns any skipped version into a
+failure, which is how CI proves the full range was really checked:
 
 ```bash
 ./paper/compat-check.sh --strict
@@ -95,16 +112,27 @@ turns any skipped version into a failure:
 
 ## Building
 
-The companion builds on **JDK 21**, the same as the proxy:
+The 1.21.x variant builds on **JDK 21**, the same as the proxy:
 
 ```bash
 mvn -f paper/pom.xml verify
 ```
 
+The 26.x variant needs **JDK 25**:
+
+```bash
+mvn -f paper/pom.xml -P paper-26 verify
+```
+
+Both write to `paper/target/`, and each build cleans it, so copy the first jar
+aside if you want both at once.
+
 ## Installing
 
 1. Put `katharsis_proxy-<version>.jar` in the proxy's `plugins/`.
-2. Put `katharsis_paper-<version>.jar` in every backend's `plugins/`.
+2. Put the companion jar for your server's line in every backend's `plugins/`
+   — `katharsis_paper-<version>.jar` for Paper 1.21.x, or
+   `katharsis_paper-<version>-mc26.jar` for 26.x.
 3. Start the proxy first, then the backends.
 
 Order does not actually matter — the companion announces on the first player

@@ -14,31 +14,50 @@
 
     <properties>
         <!--
-          Built against the OLDEST supported Paper API, and targeting the JDK
-          that API requires. A plugin compiled against an old API runs on newer
-          servers; the reverse does not hold. That one decision is what makes a
-          single jar cover 1.21.1 through 26.2.
+          Two build variants, one per Paper line, because the lines need
+          different JDKs: every 1.21.x API is a Java 21 artifact and every 26.x
+          API is a Java 25 one.
 
-          Do not "upgrade" these to the newest Paper: compiling against 26.2
-          would produce Java 25 bytecode that no 1.21.x server can even load.
-          compat-check.sh proves the API surface used here exists across the
-          whole range.
+            (default)      1.21.x  - paper-api 1.21.1, Java 21
+            -P paper-26    26.x    - paper-api 26.1.2, Java 25
+
+          Each is built against the OLDEST API in its line, so it runs on every
+          release of that line: a plugin compiled against an old API works on
+          newer servers, never the reverse. compat-check.sh proves the API
+          surface used here exists across both lines.
         -->
-        <java.release>21</java.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <paper.variant>1.21.x</paper.variant>
         <paper.version>1.21.1-R0.1-SNAPSHOT</paper.version>
-        <!-- Declared in plugin.yml as the MINIMUM server this plugin supports,
-             not the newest. PluginDescriptorTest checks it stays consistent
-             with paper.version. -->
         <paper.api.version>1.21</paper.api.version>
-        <!-- Oldest and newest servers this jar is meant to run on. Documented
-             in docs/companion-plugin.md and checked by compat-check.sh. -->
         <paper.supported.min>1.21.1</paper.supported.min>
-        <paper.supported.max>26.2</paper.supported.max>
+        <paper.supported.max>1.21.11</paper.supported.max>
+        <java.release>21</java.release>
+        <required.jdk.range>[21,)</required.jdk.range>
+        <!-- Appended to the jar name so the two variants can sit side by side. -->
+        <paper.variant.suffix></paper.variant.suffix>
+
         <junit.version>5.14.4</junit.version>
         <surefire.version>3.6.0</surefire.version>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
+
+    <profiles>
+        <profile>
+            <id>paper-26</id>
+            <properties>
+                <paper.variant>26.x</paper.variant>
+                <paper.version>26.1.2.build.74-stable</paper.version>
+                <!-- The 26.x line declares full version strings, unlike the
+                     classic major.minor form the 1.21 line uses. -->
+                <paper.api.version>26.1.2</paper.api.version>
+                <paper.supported.min>26.1.2</paper.supported.min>
+                <paper.supported.max>26.2</paper.supported.max>
+                <java.release>25</java.release>
+                <required.jdk.range>[25,)</required.jdk.range>
+                <paper.variant.suffix>-mc26</paper.variant.suffix>
+            </properties>
+        </profile>
+    </profiles>
 
     <repositories>
         <repository>
@@ -65,6 +84,7 @@
 
     <build>
         <defaultGoal>clean package</defaultGoal>
+        <finalName>${project.artifactId}-${project.version}${paper.variant.suffix}</finalName>
         <resources>
             <resource>
                 <directory>${project.basedir}/src/main/resources</directory>
@@ -88,8 +108,8 @@
                                      running JVM's own java.* system properties, and a pom
                                      property that collides with one is a coin flip. -->
                                 <requireJavaVersion>
-                                    <version>[21,)</version>
-                                    <message>This module is built against the Paper 1.21.1 API, which needs JDK 21 or newer.</message>
+                                    <version>${required.jdk.range}</version>
+                                    <message>The ${paper.variant} variant is built against paper-api ${paper.version}, whose class files need JDK ${java.release} or newer to read. Build it with that JDK, or drop -P paper-26 to build the 1.21.x variant instead.</message>
                                 </requireJavaVersion>
                             </rules>
                         </configuration>
@@ -112,6 +132,7 @@
                     <!-- So PluginDescriptorTest can check that the version
                          properties stay consistent with each other. -->
                     <systemPropertyVariables>
+                        <katharsis.paper.variant>${paper.variant}</katharsis.paper.variant>
                         <katharsis.paper.version>${paper.version}</katharsis.paper.version>
                         <katharsis.paper.api.version>${paper.api.version}</katharsis.paper.api.version>
                         <katharsis.paper.supported.min>${paper.supported.min}</katharsis.paper.supported.min>
