@@ -11,6 +11,8 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
+import me.ganamaga.katharsis_proxy.config.MotdConfig;
+import me.ganamaga.katharsis_proxy.config.MotdMode;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
@@ -19,6 +21,8 @@ import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
+import me.ganamaga.katharsis_proxy.motd.MotdLibrary;
+import me.ganamaga.katharsis_proxy.motd.MotdPingListener;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
@@ -57,6 +61,7 @@ public class Katharsis_proxy {
     private Messages messages;
     private DatabaseManager database;
     private PlayerRepository players;
+    private MotdLibrary motdLibrary;
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -70,6 +75,7 @@ public class Katharsis_proxy {
         setUpDatabase();
         registerCommands();
         registerPluginMessaging();
+        registerMotd();
         scheduleCacheSweep();
 
         logger.info("Katharsis Proxy loaded successfully.");
@@ -166,6 +172,42 @@ public class Katharsis_proxy {
                 proxy, logger, languageRegistry, messages, database, players, languageCache, companions));
         logger.info("Serving language requests on the '{}' plugin message channel.",
                 LanguageChannel.IDENTIFIER.getId());
+    }
+
+    /**
+     * Takes over the server list ping with the banner MOTD, when it is turned
+     * on. Everything here is optional: with the feature off, or with no banner
+     * files present, the proxy keeps answering pings from velocity.toml.
+     */
+    private void registerMotd() {
+        MotdConfig motd = configManager.config().motd();
+        if (!motd.enabled()) {
+            logger.info("The banner MOTD is off; pings are answered from velocity.toml.");
+            return;
+        }
+
+        motdLibrary = new MotdLibrary(logger, dataDirectory);
+        motdLibrary.load(motd.count());
+        if (motdLibrary.isEmpty()) {
+            logger.warn("The banner MOTD is on but no banner loaded from {}; every ping will use the fallback.",
+                    dataDirectory);
+        }
+
+        // The config is passed as a supplier so a later reload is picked up
+        // without re-registering the listener.
+        proxy.getEventManager().register(this,
+                new MotdPingListener(() -> configManager.config().motd(), motdLibrary));
+
+        if (motd.mode() == MotdMode.ROLLING && motdLibrary.size() > 1 && motd.rollingIntervalSeconds() > 0L) {
+            proxy.getScheduler().buildTask(this, motdLibrary::advance)
+                    .repeat(motd.rollingIntervalSeconds(), TimeUnit.SECONDS)
+                    .schedule();
+            logger.info("Serving {} banner MOTD(s), rotating every {}s.",
+                    motdLibrary.size(), motd.rollingIntervalSeconds());
+        } else {
+            logger.info("Serving {} banner MOTD(s) to clients on protocol {}-{}.",
+                    motdLibrary.size(), motd.minProtocol(), motd.maxProtocol());
+        }
     }
 
     /**

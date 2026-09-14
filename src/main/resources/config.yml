@@ -45,6 +45,57 @@ database:
     # Keep this below any idle timeout enforced by PostgreSQL or your firewall.
     max-lifetime-ms: 1800000
 
+# Server list ping. A "banner" MOTD is a chat component whose glyphs only line
+# up into a picture on Minecraft 1.21.9-1.21.11; every other client is served
+# the fallback below instead of a row of broken characters.
+motd:
+  # Take over the server list ping. While this is false the proxy answers from
+  # the motd in velocity.toml and nothing else in this section applies.
+  enabled: false
+
+  # Banners are read from this plugin's data directory as chat component JSON,
+  # named motd.json, motd2.json, motd3.json and so on. This is how many to look
+  # for; files that are missing or malformed are logged and skipped.
+  count: 1
+
+  # How to choose when more than one is loaded.
+  #   random  - a different one per ping (default)
+  #   rolling - one at a time, so everyone pinging together sees the same one
+  mode: random
+
+  # How long each banner is served in rolling mode.
+  rolling-interval-seconds: 60
+
+  # Protocol range that renders a banner correctly.
+  # 773 is 1.21.9 and 774 is 1.21.11.
+  min-protocol: 773
+  max-protocol: 774
+
+  # What clients outside that range are shown.
+  #   config - the fallback-motd below (default)
+  #   proxy  - nothing, so the motd from velocity.toml shows through
+  fallback: config
+  fallback-motd: "&4This server's MOTD only renders on Minecraft 1.21.9-1.21.11."
+
+  # Replace the version name, which the client shows in place of the ping bars
+  # when it cannot join. Uses & colour codes.
+  override-version-message: false
+  custom-version-message: "&cMaintenance"
+
+  # Advertise a protocol no client shares, so the version line always reads as
+  # out of date. Only the number below is sent; it is never used to reject anyone.
+  always-out-of-date: false
+  out-of-date-protocol: 773
+
+  # Hide the player count entirely. Takes precedence over the fake count below.
+  hide-player-count: false
+
+  # Advertise a made-up count instead of the real one. The online figure is
+  # max-players * fake-player-percentage / 100.
+  fake-player-count: false
+  fake-player-percentage: 10
+  max-players: 67
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

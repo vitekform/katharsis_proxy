@@ -4,13 +4,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
+import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.ConfigurateException;
+import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConfigManagerTest {
@@ -81,6 +85,42 @@ class ConfigManagerTest {
         assertEquals(25, database.pool().maximumPoolSize(), "overridden");
         assertEquals(2, database.pool().minimumIdle(), "not named, so the default is kept");
         assertEquals("katharsis", database.h2().file(), "unused section keeps its default");
+    }
+
+    @Test
+    @DisplayName("every motd key in the shipped config.yml maps onto a field")
+    void shippedMotdKeysAllMap(@TempDir Path directory) throws ConfigurateException {
+        managerIn(directory).load();
+
+        // Configurate ignores keys it does not recognise, so a typo in the
+        // shipped file would silently do nothing. Compare the keys the file
+        // ships against the ones the mapper would write for the same object.
+        Set<Object> shipped = YamlConfigurationLoader.builder()
+                .path(directory.resolve("config.yml"))
+                .build()
+                .load()
+                .node("motd")
+                .childrenMap()
+                .keySet();
+
+        CommentedConfigurationNode mapped = CommentedConfigurationNode.root();
+        mapped.set(MotdConfig.class, new MotdConfig());
+
+        assertEquals(mapped.childrenMap().keySet(), shipped);
+    }
+
+    @Test
+    @DisplayName("the motd section is off by default, so velocity.toml keeps the ping")
+    void motdDefaultsToOff(@TempDir Path directory) throws ConfigurateException {
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        MotdConfig motd = manager.config().motd();
+        assertFalse(motd.enabled());
+        assertEquals(MotdMode.RANDOM, motd.mode());
+        assertEquals(MotdFallback.CONFIG, motd.fallback());
+        assertEquals(773, motd.minProtocol());
+        assertEquals(774, motd.maxProtocol());
     }
 
     @Test

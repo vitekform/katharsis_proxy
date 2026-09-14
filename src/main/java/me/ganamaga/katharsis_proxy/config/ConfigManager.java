@@ -95,5 +95,31 @@ public final class ConfigManager {
                 && loaded.database().postgresql().password().isEmpty()) {
             logger.warn("No PostgreSQL password is set in {}.", FILE_NAME);
         }
+        validateMotd(loaded.motd());
+    }
+
+    /**
+     * Warns about MOTD settings that would silently do nothing. None of these
+     * are fatal: the listener clamps or skips whatever it cannot use.
+     */
+    private void validateMotd(MotdConfig motd) {
+        if (!motd.enabled()) {
+            return;
+        }
+        if (motd.count() < 1) {
+            logger.warn("motd.count is {}, so no banner will be loaded and every ping uses the fallback.",
+                    motd.count());
+        }
+        if (motd.minProtocol() > motd.maxProtocol()) {
+            logger.warn("motd.min-protocol ({}) is above motd.max-protocol ({}), so no client will be served a banner.",
+                    motd.minProtocol(), motd.maxProtocol());
+        }
+        if (motd.mode() == MotdMode.ROLLING && motd.rollingIntervalSeconds() <= 0L) {
+            logger.warn("motd.rolling-interval-seconds must be positive; rolling is disabled and the first banner is served.");
+        }
+        if (motd.fakePlayerCount() && (motd.fakePlayerPercentage() < 0 || motd.fakePlayerPercentage() > 100)) {
+            logger.warn("motd.fake-player-percentage ({}) is outside 0-100 and will be clamped.",
+                    motd.fakePlayerPercentage());
+        }
     }
 }
