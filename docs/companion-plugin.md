@@ -52,6 +52,55 @@ are blocked, so nothing can be taken out of the menu or dropped into it.
 If the proxy does not answer within `request-timeout-seconds`, the player is told
 the proxy is unreachable rather than being left with a frozen command.
 
+## Supported versions
+
+One jar covers **Paper 1.21.1 through 26.2**.
+
+That works because the companion is compiled against the *oldest* API in the
+range, not the newest. A plugin built against an old API runs on newer servers;
+the reverse never works. Two things follow, and both are enforced by tests:
+
+- **`paper.version` in `paper/pom.xml` is the oldest supported API**, currently
+  `1.21.1-R0.1-SNAPSHOT`. Bumping it to the newest Paper silently breaks every
+  older server.
+- **The jar is Java 21 bytecode.** Paper's 1.21.x API is a Java 21 artifact;
+  the 26.x line is Java 25. Compiling against 26.x would emit class files a
+  1.21.x server cannot load at all.
+
+`PluginDescriptorTest` asserts both — it reads the compiled class file's own
+version — so an accidental upgrade fails the build with an explanation rather
+than shipping a jar that only works on new servers.
+
+`api-version` in `plugin.yml` is `1.21`: the *minimum* server, which is what the
+field is for.
+
+### Checking the whole range
+
+Compiling against the oldest API proves nothing about whether those methods
+still exist later on. `paper/compat-check.sh` recompiles the sources against
+every Paper API release in the range and reports each one:
+
+```bash
+./paper/compat-check.sh
+```
+
+A version whose bytecode the running JDK cannot read is skipped with a notice
+rather than failing, so this is useful on JDK 21 even though it cannot cover the
+26.x half. Before a release, run it on JDK 25 or newer with `--strict`, which
+turns any skipped version into a failure:
+
+```bash
+./paper/compat-check.sh --strict
+```
+
+## Building
+
+The companion builds on **JDK 21**, the same as the proxy:
+
+```bash
+mvn -f paper/pom.xml verify
+```
+
 ## Installing
 
 1. Put `katharsis_proxy-<version>.jar` in the proxy's `plugins/`.

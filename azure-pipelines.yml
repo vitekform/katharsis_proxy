@@ -2,7 +2,8 @@
 #
 #   Proxy job      - compiles the Velocity plugin, runs its unit tests, shades
 #                    the jar, then boots it on a real Velocity proxy.
-#   Companion job  - compiles the Paper companion and runs its unit tests.
+#   Companion job  - compiles the Paper companion, runs its unit tests, then
+#                    recompiles it against every supported Paper API.
 #   Publish stage  - keeps both jars as build artifacts, master only.
 #
 # The two jobs are independent: the plugins share a wire protocol, not code, and
@@ -26,9 +27,10 @@ variables:
   MAVEN_CACHE_FOLDER: $(Pipeline.Workspace)/.m2/repository
   # Lives outside target/ so `mvn clean` cannot delete the cached download.
   VELOCITY_CACHE_FOLDER: $(Pipeline.Workspace)/.velocity
-  PAPER_CACHE_FOLDER: $(Pipeline.Workspace)/.paper
   MAVEN_OPTS: '-Dmaven.repo.local=$(MAVEN_CACHE_FOLDER) -Xmx1024m'
-  # Shared by the compiler release flag and the agent's JDK.
+  # Both plugins target Java 21 and build on the agent's preinstalled JDK. The
+  # companion compiles against the OLDEST Paper API it supports, which is a
+  # Java 21 artifact, so nothing here needs a newer toolchain.
   JDK_VERSION: '21'
 
 stages:
@@ -121,7 +123,9 @@ stages:
         displayName: Paper companion
         pool:
           vmImage: ubuntu-latest
-        timeoutInMinutes: 20
+        # The compatibility check resolves a dependency tree per supported Paper
+        # version, which is slow the first time the Maven cache is cold.
+        timeoutInMinutes: 30
         steps:
           - checkout: self
             fetchDepth: 1
@@ -147,6 +151,11 @@ stages:
               set -euo pipefail
               mvn -B -ntp -f paper/pom.xml clean verify
             displayName: Build and unit test the companion
+
+          - script: |
+              set -euo pipefail
+              ./paper/compat-check.sh
+            displayName: Compile against every supported Paper API
 
           - task: PublishTestResults@2
             displayName: Publish companion test results

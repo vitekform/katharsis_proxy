@@ -2,10 +2,14 @@
 
 ## Requirements
 
-- JDK 21 or newer
+- **JDK 21** for both plugins
 - Maven 3.9+
 - Network access on the first build, to fetch dependencies and — for the
   integration test — a Velocity release
+
+JDK 25 or newer is needed for one optional task: checking the companion against
+the newest Paper APIs, which are Java 25 artifacts. See
+[companion-plugin.md](companion-plugin.md#checking-the-whole-range).
 
 This repository holds two plugins, built separately:
 
@@ -69,9 +73,10 @@ The companion's own suite is smaller, because its logic is deliberately thin:
   pins the exact encoding the proxy must accept
 - `LanguageMenuModelTest` — selector layout: centring, row growth, the double
   chest cap, and which entry is marked current
-- `PluginDescriptorTest` — `plugin.yml` itself: that `api-version` matches the
-  `apiVersioning.json` shipped inside the paper-api jar, that the main class
-  exists, and that Maven filtered the version placeholder
+- `PluginDescriptorTest` — what decides whether the plugin loads and on which
+  servers: that the jar is Java 21 bytecode, that it was compiled against the
+  oldest supported API, that `api-version` names the minimum server, that the
+  main class exists, and that Maven filtered the version placeholder
 
 The golden-bytes case is asserted on both sides. The companion asserts it
 *writes* those bytes; the proxy's `LanguageChannelListenerTest` feeds the same
@@ -116,9 +121,14 @@ time — it already caught an `api-version` that did not match the compiled API.
    - *Velocity plugin*: restores the Maven and Velocity caches, runs
      `mvn clean verify`, publishes unit and integration results plus coverage,
      and uploads the shaded jar as `proxy-plugin`.
-   - *Paper companion*: runs `mvn -f paper/pom.xml clean verify`, publishes its
-     results and coverage, and uploads its jar as `companion-plugin`.
+   - *Paper companion*: runs `mvn -f paper/pom.xml clean verify`, then
+     `compat-check.sh` to recompile the sources against every supported Paper
+     API, publishes its results and coverage, and uploads its jar as
+     `companion-plugin`. On the agent's JDK 21 the check covers the 1.21.x half
+     of the range and reports the 26.x versions as skipped.
 2. **Publish** — master only: retains both jars as build artifacts.
+
+Both jobs use the agent's preinstalled JDK 21.
 
 Test results are published with `condition: succeededOrFailed()`, so a failing
 run still shows which tests failed rather than only that the build broke.
