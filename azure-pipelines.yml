@@ -63,6 +63,14 @@ stages:
               jdkArchitectureOption: x64
               jdkSourceOption: PreInstalled
 
+          - script: |
+              set -euo pipefail
+              # Cache@2 fails its restore if the path does not exist yet, so
+              # every cached directory is created before its task runs. On a
+              # miss they simply stay empty.
+              mkdir -p "$(MAVEN_CACHE_FOLDER)" "$(VELOCITY_CACHE_FOLDER)"
+            displayName: Prepare cache directories
+
           - task: Cache@2
             displayName: Restore Maven repository
             inputs:
@@ -145,6 +153,14 @@ stages:
               jdkArchitectureOption: x64
               jdkSourceOption: PreInstalled
 
+          - script: |
+              set -euo pipefail
+              # Cache@2 fails its restore if the path does not exist yet, so
+              # every cached directory is created before its task runs. On a
+              # miss they simply stay empty.
+              mkdir -p "$(MAVEN_CACHE_FOLDER)"
+            displayName: Prepare cache directories
+
           - task: Cache@2
             displayName: Restore Maven repository
             inputs:
@@ -202,6 +218,14 @@ stages:
           - checkout: self
             fetchDepth: 1
             displayName: Checkout
+
+          - script: |
+              set -euo pipefail
+              # Cache@2 fails its restore if the path does not exist yet, so
+              # every cached directory is created before its task runs. On a
+              # miss they simply stay empty.
+              mkdir -p "$(MAVEN_CACHE_FOLDER)" "$(JDK_INSTALL_DIR)"
+            displayName: Prepare cache directories
 
           - task: Cache@2
             displayName: Restore JDK $(COMPANION_26_JDK_VERSION)
