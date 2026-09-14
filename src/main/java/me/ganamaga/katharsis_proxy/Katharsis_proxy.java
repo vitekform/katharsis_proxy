@@ -27,6 +27,7 @@ import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
 
+import java.awt.*;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -37,11 +38,19 @@ import java.util.concurrent.TimeUnit;
 
 public class Katharsis_proxy {
 
-    /** Every server switch command shares this cooldown. */
+    /** Every server switch command shares this cooldown. (global doesn't make sense) */
+    /** Well technically it would make sense but I just chose to make it per server :D Get rekt */
     private static final Duration COMMAND_COOLDOWN = Duration.ofMinutes(1);
 
     /** How often expired language cache entries are reclaimed. */
+    // You are allowed to guess how long is 1 :)
     private static final long CACHE_SWEEP_MINUTES = 1L;
+
+    // fuck you velocity, provide normal color API for once
+    public static final String RESET  = "\u001B[0m";
+    public static final String RED    = "\u001B[31m";
+    public static final String GREEN  = "\u001B[32m";
+    public static final String YELLOW = "\u001B[33m";
 
     @Inject
     private Logger logger;
@@ -65,11 +74,7 @@ public class Katharsis_proxy {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
-        logger.info("=======================================");
-        logger.info("  Katharsis Proxy");
-        logger.info("  Loading...");
-        logger.info("=======================================");
-
+        logger.info(YELLOW + "Loading Katharsis Proxy...");
         loadConfig();
         loadLanguages();
         setUpDatabase();
@@ -77,8 +82,7 @@ public class Katharsis_proxy {
         registerPluginMessaging();
         registerMotd();
         scheduleCacheSweep();
-
-        logger.info("Katharsis Proxy loaded successfully.");
+        logger.info(GREEN + "Katharsis Proxy loaded successfully.");
     }
 
     @Subscribe
@@ -109,7 +113,7 @@ public class Katharsis_proxy {
             configManager.load();
             logger.info("Loaded configuration from {}.", configManager.configPath());
         } catch (ConfigurateException e) {
-            logger.error("Could not load config.yml; continuing with the built-in defaults.", e);
+            logger.error(RED + "Could not load config.yml; continuing with the built-in defaults.", e);
         }
     }
 
@@ -122,7 +126,7 @@ public class Katharsis_proxy {
         try {
             languageRegistry.load(configManager.config().defaultLanguage());
         } catch (ConfigurateException e) {
-            logger.error("Could not load the language files; messages will show their keys.", e);
+            logger.error(RED + "Could not load the language files; messages will show their keys.", e);
         }
         messages = new Messages(languageRegistry, languageCache);
     }
@@ -139,14 +143,14 @@ public class Katharsis_proxy {
             database.start(configManager.config().database());
             players.createTable();
         } catch (SQLException e) {
-            logger.error("Could not open the database; player data will not be stored.", e);
+            logger.error(RED + "Could not open the database; player data will not be stored.", e);
             database.close();
             return;
         }
 
         proxy.getEventManager().register(this,
                 new PlayerJoinListener(logger, languageRegistry, database, players, languageCache));
-        logger.info("Player entities will be created on first join.");
+        logger.info(GREEN + "Player entities will be created on first join.");
     }
 
     private void registerCommands() {
@@ -189,7 +193,7 @@ public class Katharsis_proxy {
         motdLibrary = new MotdLibrary(logger, dataDirectory);
         motdLibrary.load(motd.count());
         if (motdLibrary.isEmpty()) {
-            logger.warn("The banner MOTD is on but no banner loaded from {}; every ping will use the fallback.",
+            logger.warn(RED +"The banner MOTD is on but no banner loaded from {}; every ping will use the fallback.",
                     dataDirectory);
         }
 
@@ -236,9 +240,9 @@ public class Katharsis_proxy {
         serverSwitchCommands.add(command);
 
         if (proxy.getServer(serverName).isEmpty()) {
-            logger.warn("Registered /{} but no server named '{}' exists in velocity.toml.", serverName, serverName);
+            logger.warn(RED + "Registered /{} but no server named '{}' exists in velocity.toml.", serverName, serverName);
         } else {
-            logger.info("Registered /{} -> server '{}'.", serverName, serverName);
+            logger.info(GREEN + "Registered /{} -> server '{}'.", serverName, serverName);
         }
     }
 }
