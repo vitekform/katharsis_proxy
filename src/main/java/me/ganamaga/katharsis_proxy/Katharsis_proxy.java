@@ -13,11 +13,14 @@ import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
+import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
+import me.ganamaga.katharsis_proxy.messaging.ChatChannel;
+import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
@@ -74,6 +77,7 @@ public class Katharsis_proxy {
     private Messages messages;
     private DatabaseManager database;
     private PlayerRepository players;
+    private ChatMessageRepository chatMessages;
     private MotdLibrary motdLibrary;
 
     @Subscribe
@@ -143,9 +147,11 @@ public class Katharsis_proxy {
     private void setUpDatabase() {
         database = new DatabaseManager(logger, dataDirectory);
         players = new PlayerRepository(database);
+        chatMessages = new ChatMessageRepository(database);
         try {
             database.start(configManager.config().database());
             players.createTable();
+            chatMessages.createTable();
         } catch (SQLException e) {
             logger.error(RED + "Could not open the database; player data will not be stored.", e);
             database.close();
@@ -170,8 +176,9 @@ public class Katharsis_proxy {
     }
 
     /**
-     * Opens the language channel to backend servers. Registered even when the
-     * database is down, so callers get an explicit error instead of silence.
+     * Opens the language and chat channels to backend servers. Registered even
+     * when the database is down, so language callers get an explicit error
+     * instead of silence and chat reports are still kept away from clients.
      */
     private void registerPluginMessaging() {
         CompanionRegistry companions = new CompanionRegistry(logger);
@@ -180,6 +187,11 @@ public class Katharsis_proxy {
                 proxy, logger, languageRegistry, messages, database, players, languageCache, companions));
         logger.info("Serving language requests on the '{}' plugin message channel.",
                 LanguageChannel.IDENTIFIER.getId());
+
+        proxy.getChannelRegistrar().register(ChatChannel.IDENTIFIER);
+        proxy.getEventManager().register(this, new ChatChannelListener(logger, database, chatMessages));
+        logger.info("Logging chat reported on the '{}' plugin message channel.",
+                ChatChannel.IDENTIFIER.getId());
     }
 
     /**

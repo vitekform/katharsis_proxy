@@ -54,6 +54,13 @@ restarts learns about the server again without anyone touching the backend.
 language** — there is no proxy-side fallback any more. Install the companion on
 every backend.
 
+## Chat log
+
+The companion reports every chat message to the proxy on the `katharsis:chat`
+channel, and the proxy stores it in the `katharsis_chat_messages` table. There
+is nothing to configure. See [chat-messaging.md](chat-messaging.md) for the
+format and exactly which messages are reported.
+
 ## The selector
 
 `/language` (alias `/lang`) asks the proxy for `get_language_menu` and opens a

@@ -2,8 +2,10 @@ package me.ganamaga.katharsis_paper;
 
 import me.ganamaga.katharsis_paper.command.LanguageCommand;
 import me.ganamaga.katharsis_paper.listener.AnnounceListener;
+import me.ganamaga.katharsis_paper.listener.ChatListener;
 import me.ganamaga.katharsis_paper.listener.LanguageMenuListener;
 import me.ganamaga.katharsis_paper.menu.LanguageMenuView;
+import me.ganamaga.katharsis_paper.protocol.ChatChannel;
 import me.ganamaga.katharsis_paper.protocol.LanguageChannel;
 import me.ganamaga.katharsis_paper.protocol.ProxyClient;
 import org.bukkit.command.PluginCommand;
@@ -15,6 +17,8 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <p>Reimplements {@code /language} as a clickable selector. All player data and
  * every translated string live on the proxy; this plugin only draws the menu and
  * relays the choice, so the two can never disagree about a player's language.</p>
+ *
+ * <p>It also reports every chat message to the proxy, which keeps the chat log.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
 
@@ -35,6 +39,9 @@ public final class KatharsisPaper extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(
                 new LanguageMenuListener(this, client, messages), this);
+
+        getServer().getMessenger().registerOutgoingPluginChannel(this, ChatChannel.CHANNEL);
+        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
 
         AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion());
         getServer().getPluginManager().registerEvents(announcer, this);
