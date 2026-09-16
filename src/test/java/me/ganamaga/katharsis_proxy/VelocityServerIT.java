@@ -53,6 +53,9 @@ class VelocityServerIT {
     private static final long STARTUP_TIMEOUT_SECONDS = 180L;
     private static final long SHUTDOWN_TIMEOUT_SECONDS = 60L;
 
+    /** The id in velocity-plugin.json, which Velocity uses to name the plugin's logger and data directory. */
+    private static final String PLUGIN_ID = "katharsis";
+
     /** Velocity prints this once it is fully up. */
     private static final String READY_MARKER = "Done (";
 
@@ -71,14 +74,15 @@ class VelocityServerIT {
         List<String> log = runProxy(runDirectory, velocityJar);
 
         assertPluginStarted(log);
-        assertDataFilesWritten(runDirectory.resolve("plugins/katharsis"));
+        assertDataFilesWritten(runDirectory.resolve("plugins/" + PLUGIN_ID));
         assertCleanShutdown(log);
     }
 
     // --- assertions --------------------------------------------------------
 
     private void assertPluginStarted(List<String> log) {
-        assertLogged(log, "Loaded plugin katharsis_proxy");
+        // The trailing space stops a stale id with the same prefix from matching.
+        assertLogged(log, "Loaded plugin " + PLUGIN_ID + " ");
         assertLogged(log, "Katharsis Proxy loaded successfully.");
 
         assertLogged(log, "Loaded 2 language(s): cs_CZ, en_US");
@@ -90,6 +94,7 @@ class VelocityServerIT {
         assertLogged(log, "No /language is registered on the proxy; the companion plugin provides the selector.");
         assertNotLogged(log, "Registered /language");
         assertLogged(log, "Serving language requests on the 'katharsis:language' plugin message channel.");
+        assertLogged(log, "Logging chat reported on the 'katharsis:chat' plugin message channel.");
         assertLogged(log, "Caching player languages for 10 minute(s) after disconnect.");
 
         // Proves the shade relocation is what actually runs: an unrelocated
@@ -97,7 +102,7 @@ class VelocityServerIT {
         assertLogged(log, "me.ganamaga.katharsis_proxy.libs.hikari");
 
         List<String> problems = log.stream()
-                .filter(line -> line.contains("katharsis_proxy") || line.contains("me.ganamaga"))
+                .filter(line -> line.contains("[" + PLUGIN_ID + "]") || line.contains("me.ganamaga"))
                 .filter(line -> line.contains("ERROR") || line.contains("Exception"))
                 .toList();
         assertTrue(problems.isEmpty(), () -> "the plugin logged errors: " + problems);
