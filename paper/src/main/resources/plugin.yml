@@ -1,4 +1,4 @@
-name: katharsis_paper
+name: Katharsis
 version: '${project.version}'
 main: me.ganamaga.katharsis_paper.KatharsisPaper
 api-version: '${paper.api.version}'

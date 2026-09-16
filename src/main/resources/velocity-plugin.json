@@ -1,6 +1,6 @@
 {
-  "id": "katharsis_proxy",
-  "name": "katharsis_proxy",
+  "id": "katharsis",
+  "name": "Katharsis",
   "version": "${version}",
   "main": "me.ganamaga.katharsis_proxy.Katharsis_proxy",
   "authors": [

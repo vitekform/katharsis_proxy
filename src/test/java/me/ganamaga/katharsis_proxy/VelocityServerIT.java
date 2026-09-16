@@ -71,7 +71,7 @@ class VelocityServerIT {
         List<String> log = runProxy(runDirectory, velocityJar);
 
         assertPluginStarted(log);
-        assertDataFilesWritten(runDirectory.resolve("plugins/katharsis_proxy"));
+        assertDataFilesWritten(runDirectory.resolve("plugins/katharsis"));
         assertCleanShutdown(log);
     }
 
