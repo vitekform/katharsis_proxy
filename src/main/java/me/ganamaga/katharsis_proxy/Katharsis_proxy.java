@@ -23,11 +23,15 @@ import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
 import me.ganamaga.katharsis_proxy.motd.MotdLibrary;
 import me.ganamaga.katharsis_proxy.motd.MotdPingListener;
+import me.ganamaga.katharsis_proxy.motd.generator.BannerGenerator;
+import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
+import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
 
 import java.awt.*;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -192,7 +196,7 @@ public class Katharsis_proxy {
 
         motdLibrary = new MotdLibrary(logger, dataDirectory);
         motdLibrary.load(motd.count());
-        if (motdLibrary.isEmpty()) {
+        if (motdLibrary.isEmpty() && !motd.generator().enabled()) {
             logger.warn(RED +"The banner MOTD is on but no banner loaded from {}; every ping will use the fallback.",
                     dataDirectory);
         }
@@ -202,7 +206,10 @@ public class Katharsis_proxy {
         proxy.getEventManager().register(this,
                 new MotdPingListener(() -> configManager.config().motd(), motdLibrary));
 
-        if (motd.mode() == MotdMode.ROLLING && motdLibrary.size() > 1 && motd.rollingIntervalSeconds() > 0L) {
+        // Keyed on the configured count rather than what loaded: banners generated
+        // in the background arrive after this point, and advancing over fewer
+        // than two is harmless.
+        if (motd.mode() == MotdMode.ROLLING && motd.count() > 1 && motd.rollingIntervalSeconds() > 0L) {
             proxy.getScheduler().buildTask(this, motdLibrary::advance)
                     .repeat(motd.rollingIntervalSeconds(), TimeUnit.SECONDS)
                     .schedule();
@@ -212,6 +219,43 @@ public class Katharsis_proxy {
             logger.info("Serving {} banner MOTD(s) to clients on protocol {}-{}.",
                     motdLibrary.size(), motd.minProtocol(), motd.maxProtocol());
         }
+
+        if (motd.generator().enabled()) {
+            generateBanners(motd);
+        }
+    }
+
+    /**
+     * Builds banner JSON from motd.png and friends, off the startup thread.
+     * MineSkin allows roughly one upload every six seconds, so a new image can
+     * take a minute or more; until it is done pings get whatever was already
+     * loaded, or the fallback.
+     */
+    private void generateBanners(MotdConfig motd) {
+        proxy.getScheduler().buildTask(this, () -> {
+            try {
+                BannerGenerator generator = new BannerGenerator(logger,
+                        MineSkinUploader.fromConfig(logger, motd.generator()),
+                        TextureCache.load(dataDirectory.resolve(BannerGenerator.CACHE_FILE_NAME)));
+                if (generator.refresh(dataDirectory, motd.count()) > 0) {
+                    motdLibrary.load(motd.count());
+                    logger.info("Now serving {} banner MOTD(s) after generating from images.", motdLibrary.size());
+                }
+            } catch (IOException e) {
+                logger.error(RED + "Could not read {}; no banners were generated from images.",
+                        BannerGenerator.CACHE_FILE_NAME, e);
+            } catch (IllegalArgumentException e) {
+                logger.error(RED + "motd.generator.mineskin-url is not a valid URL; no banners were generated.", e);
+            } catch (InterruptedException e) {
+                // The proxy is shutting down. Uploaded tiles are already cached.
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (motdLibrary.isEmpty()) {
+                logger.warn(RED + "The banner MOTD is on but no banner loaded from {}; every ping will use the fallback.",
+                        dataDirectory);
+            }
+        }).schedule();
     }
 
     /**

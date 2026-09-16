@@ -96,6 +96,37 @@ motd:
   fake-player-percentage: 10
   max-players: 67
 
+  # Build banners from images. Each motd.png, motd2.png, ... in this plugin's
+  # data directory is cut into 8x8 tiles, every tile is uploaded to MineSkin as
+  # the face of a player skin, and the matching motd.json, motd2.json, ... is
+  # written from the resulting heads. 64x16 images fit the server list exactly:
+  # two lines of eight heads.
+  #
+  # This runs in the background at startup, only for images newer than their
+  # JSON, so a hand-written motd.json with no image is never touched. Uploads
+  # are slow (about six seconds each), but every tile is remembered in
+  # motd-skin-cache.json and never uploaded twice. A skin_cache.json from the
+  # standalone Python generator uses the same format and can be renamed to
+  # motd-skin-cache.json to reuse its uploads.
+  #
+  # Images are sent to api.mineskin.org, a third-party service, and are handled
+  # under its terms.
+  generator:
+    enabled: true
+    # Optional. MineSkin expects automated clients to authenticate and gives
+    # them higher limits. Create a key in your MineSkin account.
+    mineskin-api-key: ''
+    # MineSkin's v1 upload endpoint, as used by the standalone generator.
+    mineskin-url: https://api.mineskin.org/generate/upload
+    # Pause between uploads, in milliseconds, to stay under the rate limit.
+    upload-delay-ms: 6200
+    # Pause before retrying a rate-limited or failed upload, in milliseconds,
+    # unless MineSkin says how long to wait.
+    retry-delay-ms: 10000
+    # Attempts per tile before that image is given up on. Tiles that did upload
+    # stay cached, so the next start carries on where this one stopped.
+    max-attempts: 5
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

@@ -29,8 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public final class MotdLibrary {
 
-    /** The first file has no number, matching what banner generators emit. */
-    private static final String FIRST_FILE_NAME = "motd.json";
 
     private final Logger logger;
     private final Path dataDirectory;
@@ -53,7 +51,7 @@ public final class MotdLibrary {
     public void load(int count) {
         List<Component> loaded = new ArrayList<>();
         for (int index = 1; index <= count; index++) {
-            read(fileName(index)).ifPresent(loaded::add);
+            read(fileName(index, "json")).ifPresent(loaded::add);
         }
         this.banners = List.copyOf(loaded);
         this.rollingIndex.set(0);
@@ -91,8 +89,14 @@ public final class MotdLibrary {
         return Optional.of(current.get(index));
     }
 
-    private String fileName(int index) {
-        return index == 1 ? FIRST_FILE_NAME : "motd" + index + ".json";
+    /**
+     * Name of the {@code index}th banner file with the given extension:
+     * {@code motd.json}, {@code motd2.json} and so on. The first has no number,
+     * matching what banner generators emit. Images use the same scheme, so
+     * {@code motd2.png} is the source of {@code motd2.json}.
+     */
+    public static String fileName(int index, String extension) {
+        return (index == 1 ? "motd" : "motd" + index) + "." + extension;
     }
 
     private Optional<Component> read(String name) {

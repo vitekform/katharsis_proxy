@@ -121,5 +121,12 @@ public final class ConfigManager {
             logger.warn("motd.fake-player-percentage ({}) is outside 0-100 and will be clamped.",
                     motd.fakePlayerPercentage());
         }
+        MotdGeneratorConfig generator = motd.generator();
+        if (generator.enabled() && generator.maxAttempts() < 1) {
+            logger.warn("motd.generator.max-attempts is {}; each tile is still tried once.", generator.maxAttempts());
+        }
+        if (generator.enabled() && (generator.uploadDelayMs() < 0L || generator.retryDelayMs() < 0L)) {
+            logger.warn("motd.generator delays cannot be negative and are treated as zero.");
+        }
     }
 }

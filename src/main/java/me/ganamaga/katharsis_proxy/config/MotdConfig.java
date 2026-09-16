@@ -55,6 +55,8 @@ public class MotdConfig {
     private int fakePlayerPercentage = 10;
     private int maxPlayers = 67;
 
+    private MotdGeneratorConfig generator = new MotdGeneratorConfig();
+
     public boolean enabled() {
         return enabled;
     }
@@ -117,6 +119,10 @@ public class MotdConfig {
 
     public int maxPlayers() {
         return maxPlayers;
+    }
+
+    public MotdGeneratorConfig generator() {
+        return generator;
     }
 
     /** Whether a client on {@code protocol} can render a banner MOTD. */

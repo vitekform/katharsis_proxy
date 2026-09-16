@@ -11,7 +11,6 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -95,18 +94,18 @@ class ConfigManagerTest {
         // Configurate ignores keys it does not recognise, so a typo in the
         // shipped file would silently do nothing. Compare the keys the file
         // ships against the ones the mapper would write for the same object.
-        Set<Object> shipped = YamlConfigurationLoader.builder()
+        CommentedConfigurationNode shipped = YamlConfigurationLoader.builder()
                 .path(directory.resolve("config.yml"))
                 .build()
                 .load()
-                .node("motd")
-                .childrenMap()
-                .keySet();
+                .node("motd");
 
         CommentedConfigurationNode mapped = CommentedConfigurationNode.root();
         mapped.set(MotdConfig.class, new MotdConfig());
 
-        assertEquals(mapped.childrenMap().keySet(), shipped);
+        assertEquals(mapped.childrenMap().keySet(), shipped.childrenMap().keySet());
+        assertEquals(mapped.node("generator").childrenMap().keySet(),
+                shipped.node("generator").childrenMap().keySet(), "nested generator section");
     }
 
     @Test
