@@ -9,18 +9,23 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
+import me.ganamaga.katharsis_proxy.command.LinkCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
+import me.ganamaga.katharsis_proxy.database.AccountLinkRepository;
 import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
+import me.ganamaga.katharsis_proxy.discord.DiscordAccountLinking;
 import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
+import me.ganamaga.katharsis_proxy.link.AccountLinkService;
+import me.ganamaga.katharsis_proxy.listener.AccountLinkJoinListener;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
@@ -81,8 +86,12 @@ public class Katharsis_proxy {
     private DatabaseManager database;
     private PlayerRepository players;
     private ChatMessageRepository chatMessages;
+    private AccountLinkRepository accountLinkRepository;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
+    private AccountLinkService accountLinks;
+    private DiscordAccountLinking discordLinking;
+    private LinkCommand linkCommand;
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -90,9 +99,10 @@ public class Katharsis_proxy {
         loadConfig();
         loadLanguages();
         setUpDatabase();
-        registerCommands();
-        // Before plugin messaging, which relays chat to the bot.
+        // Before the commands and plugin messaging, which hand work to the bot.
         startDiscordBot();
+        setUpAccountLinking();
+        registerCommands();
         registerPluginMessaging();
         registerMotd();
         scheduleCacheSweep();
@@ -102,6 +112,9 @@ public class Katharsis_proxy {
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
         languageCache.clear();
+        if (accountLinks != null) {
+            accountLinks.clearCache();
+        }
         // Before the database closes, in case queued tasks still read from it.
         if (discordBot != null) {
             discordBot.stop();
@@ -118,10 +131,16 @@ public class Katharsis_proxy {
         for (ServerSwitchCommand command : serverSwitchCommands) {
             command.cooldowns().clear(playerId);
         }
+        if (linkCommand != null) {
+            linkCommand.cooldowns().clear(playerId);
+        }
         // Start the retention window. This lives here rather than in the join
         // listener so entries are still reclaimed when the database is down and
         // that listener was never registered.
         languageCache.expireLater(playerId);
+        if (accountLinks != null) {
+            accountLinks.expireLater(playerId);
+        }
     }
 
     /** Reads config.yml. On failure the built-in defaults are used instead. */
@@ -158,10 +177,12 @@ public class Katharsis_proxy {
         database = new DatabaseManager(logger, dataDirectory);
         players = new PlayerRepository(database);
         chatMessages = new ChatMessageRepository(database);
+        accountLinkRepository = new AccountLinkRepository(database);
         try {
             database.start(configManager.config().database());
             players.createTable();
             chatMessages.createTable();
+            accountLinkRepository.createTables();
         } catch (SQLException e) {
             logger.error(RED + "Could not open the database; player data will not be stored.", e);
             database.close();
@@ -183,6 +204,26 @@ public class Katharsis_proxy {
         // commands on the same name would shadow each other unpredictably
         // depending on which registered last.
         logger.info("No /language is registered on the proxy; the companion plugin provides the selector.");
+
+        CommandManager commandManager = proxy.getCommandManager();
+        linkCommand = new LinkCommand(this, proxy, logger, messages, accountLinks, discordLinking);
+        commandManager.register(commandManager.metaBuilder(LinkCommand.NAME).plugin(this).build(), linkCommand);
+        logger.info("Registered /{} for linking Minecraft accounts to Discord.", LinkCommand.NAME);
+    }
+
+    /**
+     * Sets up linking Minecraft accounts to Discord: the cache loaded on join,
+     * and /link on Discord. Set up even with the database down, so /link
+     * answers that linking is unavailable instead of not existing.
+     */
+    private void setUpAccountLinking() {
+        accountLinks = new AccountLinkService(database, accountLinkRepository);
+        discordLinking = new DiscordAccountLinking(logger, discordBot, accountLinks, messages,
+                () -> configManager.config().discord());
+        if (database.isAvailable()) {
+            proxy.getEventManager().register(this, new AccountLinkJoinListener(logger, accountLinks));
+        }
+        discordLinking.register();
     }
 
     /**
@@ -322,9 +363,15 @@ public class Katharsis_proxy {
             if (evicted > 0) {
                 logger.debug("Dropped {} cached language(s); {} remaining.", evicted, languageCache.size());
             }
+            int links = accountLinks.evictExpired();
+            if (links > 0) {
+                logger.debug("Dropped {} cached account link(s).", links);
+            }
         }).repeat(CACHE_SWEEP_MINUTES, TimeUnit.MINUTES).schedule();
         logger.info("Caching player languages for {} minute(s) after disconnect.",
                 PlayerLanguageCache.RETENTION.toMinutes());
+        logger.info("Caching account links for {} minute(s) after disconnect.",
+                AccountLinkService.CACHE_RETENTION.toMinutes());
     }
 
     private void registerServerSwitchCommand(String serverName) {

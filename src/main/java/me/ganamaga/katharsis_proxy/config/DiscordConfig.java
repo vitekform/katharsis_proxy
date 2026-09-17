@@ -17,6 +17,12 @@ public class DiscordConfig {
 
     private String token = "";
 
+    /** The Discord server /link is registered in and the linked role is granted in. */
+    private long guildId = 0L;
+
+    /** Role granted to members who link their Minecraft account. 0 grants none. */
+    private long linkedRoleId = 0L;
+
     /** Server id to the id of the Discord channel its chat is posted to. */
     private Map<String, Long> chatChannels = new HashMap<>();
 
@@ -26,6 +32,14 @@ public class DiscordConfig {
 
     public String token() {
         return token;
+    }
+
+    public long guildId() {
+        return guildId;
+    }
+
+    public long linkedRoleId() {
+        return linkedRoleId;
     }
 
     /** Server ids mapped to Discord channel ids. Servers not listed are not relayed. */

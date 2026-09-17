@@ -54,7 +54,43 @@ public enum MessageKey {
     MENU_SELECT_HINT("menu-select-hint"),
 
     /** Lore on the language the player already uses. Placeholders: none. */
-    MENU_CURRENT_HINT("menu-current-hint");
+    MENU_CURRENT_HINT("menu-current-hint"),
+
+    /** In game, /link without a code. Placeholders: none. */
+    LINK_USAGE("link-usage"),
+
+    /** In game, the accounts are now linked. Placeholders: {@code <discord>}. */
+    LINK_SUCCESS("link-success"),
+
+    /** In game, the code is unknown, expired or used. Placeholders: none. */
+    LINK_INVALID_CODE("link-invalid-code"),
+
+    /** In game, the player is already linked. Placeholders: {@code <discord>}. */
+    LINK_ALREADY_LINKED("link-already-linked"),
+
+    /** In game, the code's Discord account is linked to someone else. Placeholders: none. */
+    LINK_DISCORD_TAKEN("link-discord-taken"),
+
+    /** In game, linking cannot be done right now. Placeholders: none. */
+    LINK_UNAVAILABLE("link-unavailable"),
+
+    /**
+     * On Discord, the description of the /link command. Plain text, at most 100
+     * characters. Placeholders: none.
+     */
+    DISCORD_LINK_DESCRIPTION("discord-link-description"),
+
+    /**
+     * On Discord, the reply carrying a new code. Discord markdown, not
+     * MiniMessage colours. Placeholders: {@code <code>}, {@code <hours>}.
+     */
+    DISCORD_LINK_CODE("discord-link-code"),
+
+    /** On Discord, the account is already linked. Placeholders: {@code <player>}. */
+    DISCORD_LINK_ALREADY_LINKED("discord-link-already-linked"),
+
+    /** On Discord, linking cannot be done right now. Placeholders: none. */
+    DISCORD_LINK_UNAVAILABLE("discord-link-unavailable");
 
     private final String key;
 

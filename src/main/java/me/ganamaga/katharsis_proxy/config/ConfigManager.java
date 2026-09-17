@@ -103,6 +103,12 @@ public final class ConfigManager {
         if (discord.enabled() && discord.token().isBlank()) {
             logger.warn("discord.enabled is true but no discord.token is set, so the bot will not start.");
         }
+        if (discord.enabled() && discord.guildId() <= 0L) {
+            logger.warn("discord.guild-id is not set, so /link is not available on Discord.");
+        }
+        if (discord.linkedRoleId() > 0L && discord.guildId() <= 0L) {
+            logger.warn("discord.linked-role-id is set without discord.guild-id, so no role will be granted.");
+        }
         discord.chatChannels().forEach((server, channel) -> {
             if (channel == null || channel <= 0L) {
                 logger.warn("discord.chat-channels.{} is not a Discord channel id, so its chat is not relayed.",

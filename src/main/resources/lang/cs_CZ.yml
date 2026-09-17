@@ -32,3 +32,22 @@ language-name: "Čeština"
 menu-title: "<dark_gray>Vyber si jazyk"
 menu-select-hint: "<gray>Klikni pro použití tohoto jazyka."
 menu-current-hint: "<green>Tento jazyk právě používáš."
+
+# Propojení účtů ve hře.
+link-usage: "<red>Použití: <gold>/link KÓD</gold>. Kód získáš příkazem <gold>/link</gold> na našem Discord serveru.</red>"
+# <discord>
+link-success: "<green>Tvůj účet je nyní propojen s Discord účtem <gold><discord></gold>.</green>"
+link-invalid-code: "<red>Tento kód je neplatný, vypršel nebo už byl použit. Nový získáš příkazem <gold>/link</gold> na Discordu.</red>"
+# <discord>
+link-already-linked: "<red>Tvůj účet už je propojen s Discord účtem <gold><discord></gold>.</red>"
+link-discord-taken: "<red>Tento Discord účet už je propojen s jiným hráčem.</red>"
+link-unavailable: "<red>Propojení účtů teď není dostupné. Zkus to prosím později.</red>"
+
+# Propojení účtů na Discordu. Tyto zprávy jdou na Discord, takže používají jeho
+# markdown (**tučně**, `kód`), ne barvy MiniMessage.
+discord-link-description: "Propoj svůj Minecraft účet se svým Discord účtem"
+# <code> <hours>
+discord-link-code: "Tvůj kód pro propojení je **<code>**. Připoj se na Minecraft server a do <hours> hodin napiš `/link <code>`. Kód lze použít jen jednou."
+# <player>
+discord-link-already-linked: "Tvůj Discord účet už je propojen s hráčem **<player>**."
+discord-link-unavailable: "Propojení účtů teď není dostupné. Zkus to prosím později."

@@ -96,6 +96,9 @@ class VelocityServerIT {
         assertLogged(log, "Serving language requests on the 'katharsis:language' plugin message channel.");
         assertLogged(log, "Logging chat reported on the 'katharsis:chat' plugin message channel.");
         assertLogged(log, "Caching player languages for 10 minute(s) after disconnect.");
+        assertLogged(log, "Registered /link for linking Minecraft accounts to Discord.");
+        assertLogged(log, "Caching account links for 10 minute(s) after disconnect.");
+        assertLogged(log, "The Discord bot is off.");
 
         // Proves the shade relocation is what actually runs: an unrelocated
         // build would log com.zaxxer.hikari instead.

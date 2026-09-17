@@ -34,3 +34,22 @@ language-name: "English (US)"
 menu-title: "<dark_gray>Select your language"
 menu-select-hint: "<gray>Click to use this language."
 menu-current-hint: "<green>You are using this language."
+
+# Account linking, in game.
+link-usage: "<red>Usage: <gold>/link CODE</gold>. Run <gold>/link</gold> on our Discord server to get a code.</red>"
+# <discord>
+link-success: "<green>Your account is now linked to the Discord account <gold><discord></gold>.</green>"
+link-invalid-code: "<red>That link code is invalid, expired or already used. Run <gold>/link</gold> on Discord for a new one.</red>"
+# <discord>
+link-already-linked: "<red>Your account is already linked to the Discord account <gold><discord></gold>.</red>"
+link-discord-taken: "<red>That Discord account is already linked to another player.</red>"
+link-unavailable: "<red>Account linking is unavailable right now. Please try again later.</red>"
+
+# Account linking, on Discord. These are sent to Discord, so they use Discord's
+# markdown (**bold**, `code`) rather than MiniMessage colours.
+discord-link-description: "Link your Minecraft account to your Discord account"
+# <code> <hours>
+discord-link-code: "Your link code is **<code>**. Join the Minecraft server and type `/link <code>` within <hours> hours. The code works once."
+# <player>
+discord-link-already-linked: "Your Discord account is already linked to **<player>**."
+discord-link-unavailable: "Account linking is unavailable right now. Please try again later."

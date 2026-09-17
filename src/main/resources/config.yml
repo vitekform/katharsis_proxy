@@ -135,6 +135,16 @@ discord:
   # Token). Anyone holding it controls the bot, so keep this file private.
   token: ''
 
+  # Discord server (guild) id the bot works in. /link is registered there, and
+  # the linked role below is granted there. Copy it with Developer Mode on by
+  # right-clicking the server icon > Copy Server ID.
+  guild-id: 0
+
+  # Role given to members once they link their Minecraft account with /link.
+  # The bot needs the Manage Roles permission, and its own highest role must be
+  # above this one. 0 grants no role.
+  linked-role-id: 0
+
   # Discord channel each server's chat is posted to, as **player:** message.
   # Keys are server ids: the server-id set in the companion plugin's config.yml,
   # or the server's name in velocity.toml where that is left empty. Values are
