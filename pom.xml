@@ -19,6 +19,7 @@
         <hikaricp.version>7.0.2</hikaricp.version>
         <postgresql.version>42.7.11</postgresql.version>
         <h2.version>2.5.250</h2.version>
+        <discord4j.version>3.3.3</discord4j.version>
         <junit.version>5.14.4</junit.version>
         <slf4j.version>2.0.17</slf4j.version>
         <surefire.version>3.6.0</surefire.version>
@@ -30,6 +31,8 @@
         <velocity.cache.dir>${project.build.directory}/velocity</velocity.cache.dir>
         <!-- Shaded dependencies are relocated under this package. -->
         <shade.relocation.base>me.ganamaga.katharsis_proxy.libs</shade.relocation.base>
+        <!-- The same package as a path; keep the two in sync. -->
+        <shade.relocation.path>me/ganamaga/katharsis_proxy/libs</shade.relocation.path>
     </properties>
 
     <profiles>
@@ -154,7 +157,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.0</version>
+                <version>3.6.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -168,6 +171,20 @@
                                     <include>com.zaxxer:HikariCP</include>
                                     <include>org.postgresql:postgresql</include>
                                     <include>com.h2database:h2</include>
+                                    <!-- Discord4J and everything it needs at runtime. -->
+                                    <include>com.discord4j:*</include>
+                                    <include>io.projectreactor:reactor-core</include>
+                                    <include>io.projectreactor.addons:reactor-extra</include>
+                                    <include>io.projectreactor.netty:*</include>
+                                    <include>org.reactivestreams:reactive-streams</include>
+                                    <include>io.netty:*</include>
+                                    <include>com.fasterxml.jackson.core:*</include>
+                                    <include>com.fasterxml.jackson.datatype:*</include>
+                                    <include>com.google.crypto.tink:tink</include>
+                                    <include>com.google.protobuf:protobuf-java</include>
+                                    <include>moe.kyokobot.libdave:*</include>
+                                    <include>dev.arbjerg:lava-common</include>
+                                    <include>commons-io:commons-io</include>
                                 </includes>
                             </artifactSet>
                             <!-- Velocity plugins can see each other's classes, so the JDBC
@@ -186,6 +203,84 @@
                                     <pattern>org.h2</pattern>
                                     <shadedPattern>${shade.relocation.base}.h2</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>discord4j</pattern>
+                                    <shadedPattern>${shade.relocation.base}.discord4j</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.discord4j.fsm</pattern>
+                                    <shadedPattern>${shade.relocation.base}.discord4j.fsm</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>reactor</pattern>
+                                    <shadedPattern>${shade.relocation.base}.reactor</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.reactivestreams</pattern>
+                                    <shadedPattern>${shade.relocation.base}.reactivestreams</shadedPattern>
+                                </relocation>
+                                <!-- The proxy bundles its own, unrelocated Netty and plugin class
+                                     loaders ask the proxy first, so Netty must be relocated or
+                                     Reactor Netty would end up on a mix of both copies. -->
+                                <relocation>
+                                    <pattern>io.netty</pattern>
+                                    <shadedPattern>${shade.relocation.base}.netty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${shade.relocation.base}.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.crypto.tink</pattern>
+                                    <shadedPattern>${shade.relocation.base}.tink</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.protobuf</pattern>
+                                    <shadedPattern>${shade.relocation.base}.protobuf</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.sedmelluq.lava</pattern>
+                                    <shadedPattern>${shade.relocation.base}.lava</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.commons.io</pattern>
+                                    <shadedPattern>${shade.relocation.base}.commons.io</shadedPattern>
+                                </relocation>
+                                <!-- The shade plugin does not relocate the Java-version-specific
+                                     copies under META-INF/versions/<n>/, so those are moved by
+                                     path here, matching the relocations above. -->
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/com/zaxxer/hikari/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/hikari/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/org/postgresql/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/postgresql/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/org/h2/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/h2/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/reactor/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/reactor/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/io/netty/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/netty/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <relocation>
+                                    <pattern>^META-INF/versions/(\d+)/com/fasterxml/jackson/</pattern>
+                                    <shadedPattern>META-INF/versions/$1/${shade.relocation.path}/jackson/</shadedPattern>
+                                    <rawString>true</rawString>
+                                </relocation>
+                                <!-- moe.kyokobot.libdave stays put: its JNI library binds to
+                                     those class names. -->
                             </relocations>
                             <filters>
                                 <filter>
@@ -196,6 +291,13 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                         <exclude>META-INF/versions/*/module-info.class</exclude>
                                         <exclude>module-info.class</exclude>
+                                        <exclude>META-INF/INDEX.LIST</exclude>
+                                        <exclude>META-INF/versions/*/OSGI-INF/**</exclude>
+                                        <exclude>META-INF/io.netty.versions.properties</exclude>
+                                        <!-- Micrometer is not shipped, and the entries name relocated classes. -->
+                                        <exclude>META-INF/services/io.micrometer.context.ContextAccessor</exclude>
+                                        <!-- GraalVM metadata naming the unrelocated classes. -->
+                                        <exclude>META-INF/native-image/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -203,6 +305,18 @@
                                 <!-- Merges and relocates META-INF/services/java.sql.Driver. -->
                                 <transformer
                                         implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Reactor, Jackson and Netty ship Java 21 variants under
+                                     META-INF/versions, which are only used in a multi-release jar. -->
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
+                                </transformer>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheLicenseResourceTransformer"/>
+                                <transformer
+                                        implementation="org.apache.maven.plugins.shade.resource.ApacheNoticeResourceTransformer"/>
                             </transformers>
                         </configuration>
                     </execution>
@@ -296,6 +410,41 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>${h2.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.discord4j</groupId>
+            <artifactId>discord4j-core</artifactId>
+            <version>${discord4j.version}</version>
+            <exclusions>
+                <!-- Provided by the proxy. -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.code.gson</groupId>
+                    <artifactId>gson</artifactId>
+                </exclusion>
+                <!-- Source-retention annotation processor, unused at runtime. -->
+                <exclusion>
+                    <groupId>com.austinv11.servicer</groupId>
+                    <artifactId>Servicer</artifactId>
+                </exclusion>
+                <!-- Netty looks its native libraries up by package name, so they cannot
+                     load once Netty is relocated. Reactor Netty falls back to NIO. -->
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-transport-native-epoll</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-resolver-dns-native-macos</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-codec-native-quic</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
