@@ -11,7 +11,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 
 /**
- * Reports every chat message to the proxy, which logs it to the database.
+ * Reports every chat message to the proxy, which logs it to the database and
+ * posts it to Discord.
  *
  * <p>Listens at {@link EventPriority#MONITOR} so it sees the message as it was
  * finally sent, after other plugins have had their say, and skips messages
@@ -20,9 +21,15 @@ import org.bukkit.plugin.Plugin;
 public final class ChatListener implements Listener {
 
     private final Plugin plugin;
+    private final String serverId;
 
-    public ChatListener(Plugin plugin) {
+    /**
+     * @param serverId sent with every report; blank sends none, and the proxy
+     *                 uses this server's velocity.toml name
+     */
+    public ChatListener(Plugin plugin, String serverId) {
         this.plugin = plugin;
+        this.serverId = serverId;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -34,6 +41,6 @@ public final class ChatListener implements Listener {
         // thread is safe, and waiting for the main thread would lose the report
         // of a player who disconnects right after speaking.
         player.sendPluginMessage(plugin, ChatChannel.CHANNEL,
-                ChatCodec.encodePlayerMessage(player.getUniqueId(), player.getName(), content));
+                ChatCodec.encodePlayerMessage(serverId, player.getUniqueId(), player.getName(), content));
     }
 }

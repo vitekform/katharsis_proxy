@@ -5,6 +5,11 @@
 # the proxy plugin, in its lang/ directory. Edit them there and every server
 # picks the change up at once.
 
+# Identifies this server in chat reports. The proxy posts this server's chat to
+# the Discord channel mapped to this id under discord.chat-channels in its own
+# config.yml. Leave it empty to use this server's name from velocity.toml.
+server-id: ''
+
 # How long to wait for the proxy to answer before telling the player it is
 # unreachable, in seconds.
 request-timeout-seconds: 5

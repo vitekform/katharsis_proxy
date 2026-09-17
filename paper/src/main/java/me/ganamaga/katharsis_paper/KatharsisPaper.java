@@ -18,7 +18,8 @@ import org.bukkit.plugin.java.JavaPlugin;
  * every translated string live on the proxy; this plugin only draws the menu and
  * relays the choice, so the two can never disagree about a player's language.</p>
  *
- * <p>It also reports every chat message to the proxy, which keeps the chat log.</p>
+ * <p>It also reports every chat message to the proxy, which keeps the chat log
+ * and posts it to Discord.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
 
@@ -41,7 +42,8 @@ public final class KatharsisPaper extends JavaPlugin {
                 new LanguageMenuListener(this, client, messages), this);
 
         getServer().getMessenger().registerOutgoingPluginChannel(this, ChatChannel.CHANNEL);
-        getServer().getPluginManager().registerEvents(new ChatListener(this), this);
+        getServer().getPluginManager().registerEvents(
+                new ChatListener(this, getConfig().getString("server-id", "").strip()), this);
 
         AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion());
         getServer().getPluginManager().registerEvents(announcer, this);

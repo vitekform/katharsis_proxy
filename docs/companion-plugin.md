@@ -57,9 +57,14 @@ every backend.
 ## Chat log
 
 The companion reports every chat message to the proxy on the `katharsis:chat`
-channel, and the proxy stores it in the `katharsis_chat_messages` table. There
-is nothing to configure. See [chat-messaging.md](chat-messaging.md) for the
-format and exactly which messages are reported.
+channel. The proxy stores it in the `katharsis_chat_messages` table and can post
+it to Discord.
+
+Set `server-id` in the companion's `config.yml` to choose which Discord channel
+this server's chat goes to: it is the key looked up in the proxy's
+`discord.chat-channels`. Left empty, the proxy uses the server's name from
+`velocity.toml`. See [chat-messaging.md](chat-messaging.md) for the format and
+exactly which messages are reported.
 
 ## The selector
 

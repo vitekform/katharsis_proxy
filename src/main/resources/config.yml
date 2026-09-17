@@ -127,6 +127,26 @@ motd:
     # stay cached, so the next start carries on where this one stopped.
     max-attempts: 5
 
+# Discord bot, running on its own thread next to the proxy.
+discord:
+  # Log the bot in at startup.
+  enabled: false
+  # Bot token from the Discord developer portal (Applications > Bot > Reset
+  # Token). Anyone holding it controls the bot, so keep this file private.
+  token: ''
+
+  # Discord channel each server's chat is posted to, as **player:** message.
+  # Keys are server ids: the server-id set in the companion plugin's config.yml,
+  # or the server's name in velocity.toml where that is left empty. Values are
+  # channel ids; turn on Developer Mode in Discord's settings, then right-click
+  # a channel and Copy Channel ID. The bot needs permission to send messages
+  # there. Chat from servers not listed here stays out of Discord.
+  #
+  # chat-channels:
+  #   lobby: 123456789012345678
+  #   lifesteal: 234567890123456789
+  chat-channels: {}
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

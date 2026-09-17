@@ -21,7 +21,7 @@ import java.util.UUID;
 
 /**
  * Logs the chat reports backends send on the {@link ChatChannel#IDENTIFIER}
- * channel to the database.
+ * channel to the database, and hands each one to a {@link ChatRelay}.
  *
  * <p>Nothing is ever sent back. As with the language channel, only backend
  * servers are listened to: a client could otherwise put words in anyone's
@@ -32,17 +32,25 @@ public final class ChatChannelListener {
     private final Logger logger;
     private final DatabaseManager database;
     private final ChatMessageRepository chatMessages;
+    private final ChatRelay relay;
     private final Clock clock;
 
-    public ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages) {
-        this(logger, database, chatMessages, Clock.systemUTC());
+    public ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages,
+                               ChatRelay relay) {
+        this(logger, database, chatMessages, relay, Clock.systemUTC());
     }
 
-    ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages, Clock clock) {
+    ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages,
+                        ChatRelay relay, Clock clock) {
         this.logger = logger;
         this.database = database;
         this.chatMessages = chatMessages;
+        this.relay = relay;
         this.clock = clock;
+    }
+
+    /** A decoded report: the message to log, and the server id to relay it under. */
+    private record Report(ChatMessage message, String serverId) {
     }
 
     @Subscribe
@@ -59,10 +67,14 @@ public final class ChatChannelListener {
         }
 
         String server = source.getServerInfo().getName();
-        ChatMessage message = decode(event.getData(), server);
-        if (message == null) {
+        Report report = decode(event.getData(), server);
+        if (report == null) {
             return null;
         }
+        ChatMessage message = report.message();
+
+        // Independent of the database, so chat still reaches Discord while it is down.
+        relay.relay(report.serverId(), message);
 
         if (!database.isAvailable()) {
             // Already reported loudly at startup; one line per chat message would bury the log.
@@ -87,10 +99,10 @@ public final class ChatChannelListener {
     /**
      * Decodes a report into a message stamped with the time of receipt.
      *
-     * @return the message, or {@code null} if the payload was malformed or not
+     * @return the report, or {@code null} if the payload was malformed or not
      *         an action this proxy understands; the reason is logged
      */
-    private ChatMessage decode(byte[] data, String server) {
+    private Report decode(byte[] data, String server) {
         JsonObject json;
         try {
             JsonElement parsed = JsonParser.parseString(new String(data, StandardCharsets.UTF_8));
@@ -118,8 +130,23 @@ public final class ChatChannelListener {
             return null;
         }
 
+        String serverId = server;
+        if (json.has(ChatChannel.FIELD_SERVER)) {
+            String reported = string(json, ChatChannel.FIELD_SERVER);
+            if (reported == null) {
+                logger.warn("Ignored a chat report from '{}': its server id is not a string.", server);
+                return null;
+            }
+            if (!reported.isBlank()) {
+                serverId = reported;
+            }
+        }
+
         try {
-            return new ChatMessage(UUID.fromString(uuid), playerName, server, content, clock.instant());
+            // The database keeps the velocity.toml name, which a backend cannot
+            // choose. The reported id only decides where the message is relayed.
+            return new Report(new ChatMessage(UUID.fromString(uuid), playerName, server, content, clock.instant()),
+                    serverId);
         } catch (IllegalArgumentException e) {
             // A malformed uuid, or a name too wide for its column.
             logger.warn("Ignored a chat report from '{}': {}", server, e.getMessage());

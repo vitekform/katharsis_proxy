@@ -22,6 +22,13 @@ public final class ChatChannel {
     /** Field naming what the message reports. */
     public static final String FIELD_ACTION = "action";
 
+    /**
+     * Optional field naming the sending server, as set in the companion's
+     * config. When it is absent or blank the server's velocity.toml name is
+     * used instead.
+     */
+    public static final String FIELD_SERVER = "server";
+
     /** Field holding the player's uuid, canonical dashed form. */
     public static final String FIELD_PLAYER = "player";
 

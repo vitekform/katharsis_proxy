@@ -96,6 +96,19 @@ public final class ConfigManager {
             logger.warn("No PostgreSQL password is set in {}.", FILE_NAME);
         }
         validateMotd(loaded.motd());
+        validateDiscord(loaded.discord());
+    }
+
+    private void validateDiscord(DiscordConfig discord) {
+        if (discord.enabled() && discord.token().isBlank()) {
+            logger.warn("discord.enabled is true but no discord.token is set, so the bot will not start.");
+        }
+        discord.chatChannels().forEach((server, channel) -> {
+            if (channel == null || channel <= 0L) {
+                logger.warn("discord.chat-channels.{} is not a Discord channel id, so its chat is not relayed.",
+                        server);
+            }
+        });
     }
 
     /**

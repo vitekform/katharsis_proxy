@@ -21,10 +21,18 @@ public final class ChatCodec {
     private ChatCodec() {
     }
 
-    /** Builds a {@code player_msg} report as UTF-8 JSON. */
-    public static byte[] encodePlayerMessage(UUID player, String playerName, String content) {
+    /**
+     * Builds a {@code player_msg} report as UTF-8 JSON.
+     *
+     * @param serverId this server's configured id, or {@code null} or blank to
+     *                 leave it out and let the proxy use the server's name
+     */
+    public static byte[] encodePlayerMessage(String serverId, UUID player, String playerName, String content) {
         JsonObject json = new JsonObject();
         json.addProperty("action", ChatChannel.ACTION_PLAYER_MSG);
+        if (serverId != null && !serverId.isBlank()) {
+            json.addProperty("server", serverId);
+        }
         json.addProperty("player", player.toString());
         json.addProperty("player_name", playerName);
         json.addProperty("content", content);

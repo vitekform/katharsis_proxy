@@ -1,8 +1,9 @@
 # Chat log over plugin messaging
 
 Backend servers report every chat message to the proxy on the `katharsis:chat`
-plugin message channel, and the proxy writes each one to the database. The
-companion plugin sends these reports; any other backend plugin may too.
+plugin message channel. The proxy writes each one to the database and, when a
+channel is configured for the server, posts it to Discord. The companion plugin
+sends these reports; any other backend plugin may too.
 
 The channel is **one-way**: the proxy never replies, so a sender does not wait
 for anything.
@@ -20,12 +21,13 @@ Each plugin message is a single JSON object, encoded as UTF-8 bytes. The bytes
 are the whole payload: no `writeUTF` length prefix, no other framing.
 
 ```json
-{"action": "player_msg", "player": "1e1f2b3c-4d5e-6f70-8192-a3b4c5d6e7f8", "player_name": "Notch", "content": "hello"}
+{"action": "player_msg", "server": "lobby", "player": "1e1f2b3c-4d5e-6f70-8192-a3b4c5d6e7f8", "player_name": "Notch", "content": "hello"}
 ```
 
 | Field         | Type   | Notes                                                    |
 |---------------|--------|----------------------------------------------------------|
 | `action`      | string | Always `player_msg`. Anything else is ignored.            |
+| `server`      | string | Optional. The sender's server id, which picks its Discord channel. Absent or blank means the backend's name in `velocity.toml`. |
 | `player`      | string | The author's uuid, canonical dashed form                  |
 | `player_name` | string | The author's username, at most 64 characters              |
 | `content`     | string | The message as plain text. May be empty.                  |
@@ -33,7 +35,8 @@ are the whole payload: no `writeUTF` length prefix, no other framing.
 Field order does not matter and extra fields are ignored. A report that is not
 valid JSON, has an unknown `action`, is missing a field, has a field of the
 wrong type or has a malformed uuid is dropped with a warning in the proxy log.
-Nothing is written for it.
+Nothing is written or posted for it. A `server` that is present but not a
+string counts as a field of the wrong type.
 
 ## What gets stored
 
@@ -48,14 +51,41 @@ Each report becomes one row in `katharsis_chat_messages`:
 | `content`     | `TEXT`                   | `content`                                      |
 | `sent_at`     | `TIMESTAMP WITH TIME ZONE` | When the proxy received the report, in UTC   |
 
-`server` comes from the connection the report arrived on, not from the payload,
-so a backend cannot claim to be another one. The table is indexed on
+The `server` column comes from the connection the report arrived on, not from
+the payload's `server` field, so a backend cannot write another one's name into
+the log. The table is indexed on
 `(player_uuid, sent_at)` for looking up one player's history.
 
 The log is append-only: identical messages are all kept.
 
 If the database is unavailable, reports are dropped. The proxy logs that the
 database is down once at startup, not once per message.
+
+## Posting to Discord
+
+When the proxy's Discord bot is on, each report is also posted to the channel
+that `discord.chat-channels` in the proxy's `config.yml` maps its server id to:
+
+```yaml
+discord:
+  enabled: true
+  token: '...'
+  chat-channels:
+    lobby: 123456789012345678
+```
+
+The server id is the report's `server` field, or the backend's `velocity.toml`
+name when it has none. Servers that are not listed are not posted.
+
+A message appears as `**Notch:** hello`. Discord formatting in the name and the
+message is escaped, so it shows exactly as typed in game, and line breaks become
+spaces. Mentions such as `@everyone` are shown but notify nobody. Anything past
+Discord's 2000 characters is cut off.
+
+Posting does not depend on the database: chat still reaches Discord while the
+database is down. Messages are posted in order, one at a time, on the bot's own
+thread, so a busy chat can fall behind Discord's rate limits. Once a thousand
+posts are waiting, new ones are dropped until the bot catches up.
 
 ## The companion's reports
 

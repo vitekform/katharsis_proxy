@@ -11,6 +11,7 @@ import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -106,6 +107,43 @@ class ConfigManagerTest {
         assertEquals(mapped.childrenMap().keySet(), shipped.childrenMap().keySet());
         assertEquals(mapped.node("generator").childrenMap().keySet(),
                 shipped.node("generator").childrenMap().keySet(), "nested generator section");
+    }
+
+    @Test
+    @DisplayName("the discord bot is off by default and every shipped key maps onto a field")
+    void discordDefaultsToOff(@TempDir Path directory) throws ConfigurateException {
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        DiscordConfig discord = manager.config().discord();
+        assertFalse(discord.enabled());
+        assertEquals("", discord.token());
+        assertTrue(discord.chatChannels().isEmpty());
+
+        CommentedConfigurationNode shipped = YamlConfigurationLoader.builder()
+                .path(directory.resolve("config.yml"))
+                .build()
+                .load()
+                .node("discord");
+        CommentedConfigurationNode mapped = CommentedConfigurationNode.root();
+        mapped.set(DiscordConfig.class, new DiscordConfig());
+        assertEquals(mapped.childrenMap().keySet(), shipped.childrenMap().keySet());
+    }
+
+    @Test
+    @DisplayName("chat channels map server ids to Discord channel ids")
+    void discordChatChannels(@TempDir Path directory) throws ConfigurateException, IOException {
+        Files.writeString(directory.resolve("config.yml"), """
+                discord:
+                  chat-channels:
+                    lobby: 123456789012345678
+                    lifesteal-eu: "234567890123456789"
+                """);
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        assertEquals(Map.of("lobby", 123456789012345678L, "lifesteal-eu", 234567890123456789L),
+                manager.config().discord().chatChannels());
     }
 
     @Test

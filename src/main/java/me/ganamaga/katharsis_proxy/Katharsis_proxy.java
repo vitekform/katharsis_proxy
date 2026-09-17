@@ -11,11 +11,14 @@ import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
+import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
 import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
+import me.ganamaga.katharsis_proxy.discord.DiscordBot;
+import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
@@ -79,6 +82,7 @@ public class Katharsis_proxy {
     private PlayerRepository players;
     private ChatMessageRepository chatMessages;
     private MotdLibrary motdLibrary;
+    private DiscordBot discordBot;
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -87,6 +91,8 @@ public class Katharsis_proxy {
         loadLanguages();
         setUpDatabase();
         registerCommands();
+        // Before plugin messaging, which relays chat to the bot.
+        startDiscordBot();
         registerPluginMessaging();
         registerMotd();
         scheduleCacheSweep();
@@ -96,6 +102,10 @@ public class Katharsis_proxy {
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
         languageCache.clear();
+        // Before the database closes, in case queued tasks still read from it.
+        if (discordBot != null) {
+            discordBot.stop();
+        }
         if (database != null) {
             database.close();
         }
@@ -189,9 +199,14 @@ public class Katharsis_proxy {
                 LanguageChannel.IDENTIFIER.getId());
 
         proxy.getChannelRegistrar().register(ChatChannel.IDENTIFIER);
-        proxy.getEventManager().register(this, new ChatChannelListener(logger, database, chatMessages));
+        DiscordChatRelay discordRelay = new DiscordChatRelay(logger, discordBot, () -> configManager.config().discord());
+        proxy.getEventManager().register(this, new ChatChannelListener(logger, database, chatMessages, discordRelay));
         logger.info("Logging chat reported on the '{}' plugin message channel.",
                 ChatChannel.IDENTIFIER.getId());
+        int relayed = configManager.config().discord().chatChannels().size();
+        if (discordBot.isAccepting() && relayed > 0) {
+            logger.info("Posting chat from {} server(s) to Discord.", relayed);
+        }
     }
 
     /**
@@ -268,6 +283,33 @@ public class Katharsis_proxy {
                         dataDirectory);
             }
         }).schedule();
+    }
+
+    /**
+     * Logs the Discord bot in on its own thread. The bot is created even when
+     * it is off, so {@link #discordBot()} is always usable and simply rejects
+     * tasks.
+     */
+    private void startDiscordBot() {
+        discordBot = new DiscordBot(logger);
+        DiscordConfig discord = configManager.config().discord();
+        if (!discord.enabled()) {
+            logger.info("The Discord bot is off.");
+            return;
+        }
+        if (discord.token().isBlank()) {
+            logger.warn(RED + "The Discord bot is on but discord.token is empty; it will not start.");
+            return;
+        }
+        discordBot.start(discord.token().strip());
+    }
+
+    /**
+     * The Discord bot. Submit work to it from any thread; it runs the tasks in
+     * order on its own thread.
+     */
+    public DiscordBot discordBot() {
+        return discordBot;
     }
 
     /**

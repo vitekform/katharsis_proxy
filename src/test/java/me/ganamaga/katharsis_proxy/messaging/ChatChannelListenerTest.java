@@ -28,7 +28,9 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -50,6 +52,9 @@ class ChatChannelListenerTest {
     private ChatMessageRepository chatMessages;
     private ChatChannelListener listener;
 
+    /** Server id and message of every relayed report, in order. */
+    private final List<Map.Entry<String, ChatMessage>> relayed = new CopyOnWriteArrayList<>();
+
     @BeforeEach
     void setUp(@TempDir Path directory) throws Exception {
         var logger = LoggerFactory.getLogger(ChatChannelListenerTest.class);
@@ -61,7 +66,8 @@ class ChatChannelListenerTest {
         chatMessages = new ChatMessageRepository(database);
         chatMessages.createTable();
 
-        listener = new ChatChannelListener(logger, database, chatMessages, Clock.fixed(NOW, ZoneOffset.UTC));
+        listener = new ChatChannelListener(logger, database, chatMessages,
+                (serverId, message) -> relayed.add(Map.entry(serverId, message)), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @AfterEach
@@ -100,6 +106,11 @@ class ChatChannelListenerTest {
 
     private static byte[] report(UUID player, String name, String content) {
         return json("{\"action\":\"player_msg\",\"player\":\"" + player
+                + "\",\"player_name\":\"" + name + "\",\"content\":\"" + content + "\"}");
+    }
+
+    private static byte[] report(String server, UUID player, String name, String content) {
+        return json("{\"action\":\"player_msg\",\"server\":\"" + server + "\",\"player\":\"" + player
                 + "\",\"player_name\":\"" + name + "\",\"content\":\"" + content + "\"}");
     }
 
@@ -175,6 +186,38 @@ class ChatChannelListenerTest {
             assertFalse(deliver(data), "even a bad report is kept from the client");
         }
         assertTrue(chatMessages.findByPlayer(PLAYER).isEmpty());
+        assertTrue(relayed.isEmpty(), "nothing malformed reaches Discord either");
+    }
+
+    @Test
+    @DisplayName("a reported server id is relayed, while the log keeps the velocity.toml name")
+    void relaysUnderReportedServerId() throws Exception {
+        deliver(report("lifesteal-eu", PLAYER, "Notch", "hello"));
+
+        ChatMessage logged = new ChatMessage(PLAYER, "Notch", "lifesteal", "hello", NOW);
+        assertEquals(List.of(Map.entry("lifesteal-eu", logged)), relayed);
+        assertEquals(List.of(logged), chatMessages.findByPlayer(PLAYER));
+    }
+
+    @Test
+    @DisplayName("without a server id, or with a blank one, the velocity.toml name is relayed")
+    void relaysUnderServerNameByDefault() throws Exception {
+        deliver(report(PLAYER, "Notch", "no id"));
+        deliver(report("  ", PLAYER, "Notch", "blank id"));
+
+        assertEquals(List.of("lifesteal", "lifesteal"), relayed.stream().map(Map.Entry::getKey).toList());
+    }
+
+    @Test
+    @DisplayName("a server id that is not a string drops the whole report")
+    void nonStringServerIdDropped() throws Exception {
+        deliver(json("{\"action\":\"player_msg\",\"server\":7,\"player\":\"" + PLAYER
+                + "\",\"player_name\":\"Notch\",\"content\":\"x\"}"));
+        deliver(json("{\"action\":\"player_msg\",\"server\":null,\"player\":\"" + PLAYER
+                + "\",\"player_name\":\"Notch\",\"content\":\"x\"}"));
+
+        assertTrue(relayed.isEmpty());
+        assertTrue(chatMessages.findByPlayer(PLAYER).isEmpty());
     }
 
     @Test
@@ -184,6 +227,7 @@ class ChatChannelListenerTest {
 
         assertFalse(forwarded);
         assertTrue(chatMessages.findByPlayer(PLAYER).isEmpty(), "a client cannot write to the chat log");
+        assertTrue(relayed.isEmpty(), "or post to Discord");
     }
 
     @Test
@@ -195,7 +239,7 @@ class ChatChannelListenerTest {
     }
 
     @Test
-    @DisplayName("with the database down reports are dropped quietly and still not forwarded")
+    @DisplayName("with the database down reports are not stored or forwarded, but still relayed")
     void databaseDown() throws Exception {
         database.close();
 
@@ -204,6 +248,7 @@ class ChatChannelListenerTest {
 
         assertNull(listener.onPluginMessage(event), "no database work is scheduled");
         assertFalse(event.getResult().isAllowed());
+        assertEquals(1, relayed.size());
     }
 
     /**
@@ -224,5 +269,22 @@ class ChatChannelListenerTest {
 
         assertEquals(List.of(new ChatMessage(PLAYER, "Notch", "lifesteal", "hi \"there\" <>", NOW)),
                 chatMessages.findByPlayer(PLAYER));
+    }
+
+    /** As above, for a companion with {@code server-id: lobby} set. */
+    @Test
+    @DisplayName("the companion's exact player_msg bytes with a server id are understood")
+    void understandsTheCompanionsGoldenBytesWithServer() throws Exception {
+        byte[] fromCompanion = HexFormat.of().parseHex(
+                "7b22616374696f6e223a22706c617965725f6d7367222c22736572766572223a226c6f626279222c22706c61796572"
+                        + "223a2231653166326233632d346435652d366637302d383139322d613362346335643665376638222c2270"
+                        + "6c617965725f6e616d65223a224e6f746368222c22636f6e74656e74223a226869205c2274686572655c22"
+                        + "203c3e227d");
+
+        deliver(fromCompanion);
+
+        ChatMessage logged = new ChatMessage(PLAYER, "Notch", "lifesteal", "hi \"there\" <>", NOW);
+        assertEquals(List.of(logged), chatMessages.findByPlayer(PLAYER));
+        assertEquals(List.of(Map.entry("lobby", logged)), relayed);
     }
 }
