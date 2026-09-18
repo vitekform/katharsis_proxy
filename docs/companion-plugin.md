@@ -73,8 +73,15 @@ exactly which messages are reported.
 `/language` (alias `/lang`) asks the proxy for `get_language_menu` and opens a
 chest from the reply. Each language is one item, named in **its own language** —
 `Čeština`, not "Czech" — because the proxy sends each entry's `language-name`
-from that language's own file. The player's current language is a written book
-with a glint; the rest are paper.
+from that language's own file. Each item is paper showing that language's flag
+through the resource pack, as
+`/give @s paper[custom_model_data={strings:["flags_cz"]}]` would make it. The
+model is `flags_` plus the code's region in lower case, so `cs_CZ` is `flags_cz`
+and `en_US` is `flags_us`; a new language needs a matching model in the pack. The
+player's current language has a glint.
+
+String custom model data exists from Minecraft 1.21.4. On 1.21.1–1.21.3 servers,
+and for a code with no region, the items are plain paper.
 
 Clicking a language sends `set_language`. The proxy stores it and sends the
 confirmation itself, in the newly chosen language, so the companion never

@@ -4,6 +4,7 @@ import me.ganamaga.katharsis_paper.protocol.ProxyResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -114,5 +115,19 @@ public final class LanguageMenuModel {
      * @param current     whether the viewer already uses this language
      */
     public record Entry(int slot, String code, String displayName, boolean current) {
+
+        /**
+         * The resource pack model showing this language's flag: {@code flags_}
+         * and the code's region in lower case, so {@code cs_CZ} is
+         * {@code flags_cz} and {@code en_US} is {@code flags_us}. Empty for a
+         * code with no region.
+         */
+        public Optional<String> flagModel() {
+            int separator = code.indexOf('_');
+            if (separator < 0 || separator == code.length() - 1) {
+                return Optional.empty();
+            }
+            return Optional.of("flags_" + code.substring(separator + 1).toLowerCase(Locale.ROOT));
+        }
     }
 }

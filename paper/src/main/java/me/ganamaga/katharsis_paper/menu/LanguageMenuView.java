@@ -20,11 +20,8 @@ import java.util.List;
  */
 public final class LanguageMenuView {
 
-    /** Icon for a language the player may switch to. */
-    private static final Material AVAILABLE_ICON = Material.PAPER;
-
-    /** Icon for the language the player already uses. */
-    private static final Material CURRENT_ICON = Material.WRITTEN_BOOK;
+    /** Every language's icon, drawn as its flag by the resource pack. */
+    private static final Material ICON = Material.PAPER;
 
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
@@ -41,19 +38,40 @@ public final class LanguageMenuView {
     }
 
     private ItemStack icon(LanguageMenuModel model, LanguageMenuModel.Entry entry) {
-        ItemStack item = new ItemStack(entry.current() ? CURRENT_ICON : AVAILABLE_ICON);
+        ItemStack item = flagIcon(entry);
         ItemMeta meta = item.getItemMeta();
 
         // Italics are the default for renamed items and read as an accident.
         meta.displayName(render(entry.displayName()).decoration(TextDecoration.ITALIC, false));
         meta.lore(List.of(render(entry.current() ? model.currentHint() : model.selectHint())
                 .decoration(TextDecoration.ITALIC, false)));
+        // The glint marks the current language, since every icon is a flag.
         if (entry.current()) {
             meta.setEnchantmentGlintOverride(true);
         }
 
         item.setItemMeta(meta);
         return item;
+    }
+
+    /**
+     * Paper carrying the language's flag model, as
+     * {@code /give @s paper[custom_model_data={strings:["flags_cz"]}]} makes
+     * it.
+     *
+     * <p>Parsed from that same item syntax because string custom model data
+     * only exists from 1.21.4, above the API this jar is built against. Older
+     * servers cannot parse it and get plain paper.</p>
+     */
+    private static ItemStack flagIcon(LanguageMenuModel.Entry entry) {
+        return entry.flagModel().map(model -> {
+            try {
+                return Bukkit.getItemFactory().createItemStack(
+                        "minecraft:paper[minecraft:custom_model_data={strings:[\"" + model + "\"]}]");
+            } catch (IllegalArgumentException e) {
+                return null;
+            }
+        }).orElseGet(() -> new ItemStack(ICON));
     }
 
     private Component render(String template) {

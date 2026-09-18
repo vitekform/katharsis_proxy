@@ -133,4 +133,15 @@ class LanguageMenuModelTest {
         assertEquals("current", model.currentHint());
         assertEquals("Name of en_US", model.entries().get(0).displayName());
     }
+
+    @Test
+    @DisplayName("each language's flag model is named after its region")
+    void flagModels() {
+        LanguageMenuModel model = LanguageMenuModel.from(reply("en_US", "cs_CZ", "en_US"));
+
+        assertEquals(List.of(java.util.Optional.of("flags_cz"), java.util.Optional.of("flags_us")),
+                model.entries().stream().map(LanguageMenuModel.Entry::flagModel).toList());
+        assertEquals(java.util.Optional.empty(), new LanguageMenuModel.Entry(0, "eo", "Esperanto", false).flagModel(),
+                "no region, no flag");
+    }
 }
