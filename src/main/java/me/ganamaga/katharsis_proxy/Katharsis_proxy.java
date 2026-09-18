@@ -196,7 +196,7 @@ public class Katharsis_proxy {
         proxy.getEventManager().register(this, firstJoinMenu);
         proxy.getEventManager().register(this,
                 new PlayerJoinListener(logger, languageRegistry, database, players, languageCache, firstJoinMenu));
-        logger.info(GREEN + "Player entities will be created on first join, which opens the language selector.");
+        logger.info(GREEN + "Player entities will be created on first join.");
     }
 
     private void registerCommands() {
