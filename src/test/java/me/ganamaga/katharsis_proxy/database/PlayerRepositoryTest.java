@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -92,6 +94,44 @@ class PlayerRepositoryTest {
 
         assertThrows(IllegalArgumentException.class, () -> players.createIfAbsent(id, "en_US_X"));
         assertThrows(IllegalArgumentException.class, () -> players.updateLanguage(id, "en_US_X"));
+    }
+
+    @Test
+    @DisplayName("Discord chat starts hidden and updateDiscordChat changes it")
+    void discordChat() throws SQLException {
+        UUID id = UUID.randomUUID();
+        players.createIfAbsent(id, "en_US");
+        assertFalse(players.find(id).orElseThrow().discordChat(), "hidden until the player turns it on");
+
+        assertTrue(players.updateDiscordChat(id, true));
+        Player stored = players.find(id).orElseThrow();
+        assertTrue(stored.discordChat());
+        assertEquals("en_US", stored.language(), "the language is untouched");
+
+        assertTrue(players.updateDiscordChat(id, false));
+        assertFalse(players.find(id).orElseThrow().discordChat());
+        assertFalse(players.updateDiscordChat(UUID.randomUUID(), true), "no such row");
+    }
+
+    @Test
+    @DisplayName("a table from before Discord chat settings gains the column, hidden for everyone")
+    void migratesAnOlderTable() throws SQLException {
+        UUID id = UUID.randomUUID();
+        try (Connection connection = database.getConnection(); Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE katharsis_players");
+            statement.execute("""
+                    CREATE TABLE katharsis_players (
+                        uuid     UUID        NOT NULL PRIMARY KEY,
+                        language VARCHAR(5)  NOT NULL DEFAULT 'en_US'
+                    )""");
+            statement.execute("INSERT INTO katharsis_players (uuid, language) VALUES ('" + id + "', 'cs_CZ')");
+        }
+
+        players.createTable();
+
+        Player stored = players.find(id).orElseThrow();
+        assertEquals("cs_CZ", stored.language());
+        assertFalse(stored.discordChat());
     }
 
     @Test

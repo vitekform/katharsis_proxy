@@ -123,11 +123,19 @@ public final class LanguageMenuModel {
          * code with no region.
          */
         public Optional<String> flagModel() {
-            int separator = code.indexOf('_');
-            if (separator < 0 || separator == code.length() - 1) {
-                return Optional.empty();
-            }
-            return Optional.of("flags_" + code.substring(separator + 1).toLowerCase(Locale.ROOT));
+            return LanguageMenuModel.flagModel(code);
         }
+    }
+
+    /**
+     * The resource pack model showing {@code code}'s flag, as described on
+     * {@link Entry#flagModel()}.
+     */
+    public static Optional<String> flagModel(String code) {
+        int separator = code.indexOf('_');
+        if (separator < 0 || separator == code.length() - 1) {
+            return Optional.empty();
+        }
+        return Optional.of("flags_" + code.substring(separator + 1).toLowerCase(Locale.ROOT));
     }
 }

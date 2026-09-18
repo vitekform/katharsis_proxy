@@ -17,9 +17,15 @@ public final class PlayerRepository {
 
     private static final String CREATE_TABLE = """
             CREATE TABLE IF NOT EXISTS katharsis_players (
-                uuid     UUID        NOT NULL PRIMARY KEY,
-                language VARCHAR(5)  NOT NULL DEFAULT 'en_US'
+                uuid         UUID        NOT NULL PRIMARY KEY,
+                language     VARCHAR(5)  NOT NULL DEFAULT 'en_US',
+                discord_chat BOOLEAN     NOT NULL DEFAULT FALSE
             )""";
+
+    /** Brings a table created before Discord chat could be hidden up to date. */
+    private static final String ADD_DISCORD_CHAT = """
+            ALTER TABLE katharsis_players
+            ADD COLUMN IF NOT EXISTS discord_chat BOOLEAN NOT NULL DEFAULT FALSE""";
 
     /**
      * Insert-if-absent written portably: PostgreSQL's {@code ON CONFLICT} is not
@@ -35,7 +41,7 @@ public final class PlayerRepository {
     private static final String UNIQUE_VIOLATION = "23505";
 
     private static final String SELECT_BY_UUID = """
-            SELECT uuid, language
+            SELECT uuid, language, discord_chat
             FROM katharsis_players
             WHERE uuid = ?""";
 
@@ -44,17 +50,23 @@ public final class PlayerRepository {
             SET language = ?
             WHERE uuid = ?""";
 
+    private static final String UPDATE_DISCORD_CHAT = """
+            UPDATE katharsis_players
+            SET discord_chat = ?
+            WHERE uuid = ?""";
+
     private final DatabaseManager database;
 
     public PlayerRepository(DatabaseManager database) {
         this.database = database;
     }
 
-    /** Creates the backing table if it does not exist yet. */
+    /** Creates the backing table if it does not exist yet, and adds any column it lacks. */
     public void createTable() throws SQLException {
         try (Connection connection = database.getConnection();
              Statement statement = connection.createStatement()) {
             statement.execute(CREATE_TABLE);
+            statement.execute(ADD_DISCORD_CHAT);
         }
     }
 
@@ -95,7 +107,8 @@ public final class PlayerRepository {
                 }
                 return Optional.of(new Player(
                         results.getObject("uuid", UUID.class),
-                        results.getString("language")));
+                        results.getString("language"),
+                        results.getBoolean("discord_chat")));
             }
         }
     }
@@ -111,6 +124,20 @@ public final class PlayerRepository {
         try (Connection connection = database.getConnection();
              PreparedStatement statement = connection.prepareStatement(UPDATE_LANGUAGE)) {
             statement.setString(1, language);
+            statement.setObject(2, uuid);
+            return statement.executeUpdate() > 0;
+        }
+    }
+
+    /**
+     * Shows or hides the Discord chat channels in game for a player.
+     *
+     * @return {@code true} if a row was updated
+     */
+    public boolean updateDiscordChat(UUID uuid, boolean shown) throws SQLException {
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(UPDATE_DISCORD_CHAT)) {
+            statement.setBoolean(1, shown);
             statement.setObject(2, uuid);
             return statement.executeUpdate() > 0;
         }

@@ -11,6 +11,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Turns a {@link LanguageMenuModel} into a chest the player can click.
@@ -25,9 +26,13 @@ public final class LanguageMenuView {
 
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
-    /** Builds the inventory and shows it to {@code player}. */
-    public void open(Player player, LanguageMenuModel model) {
-        LanguageMenuHolder holder = new LanguageMenuHolder(model);
+    /**
+     * Builds the inventory and shows it to {@code player}.
+     *
+     * @param onboarding whether this is a new player's first-join selector
+     */
+    public void open(Player player, LanguageMenuModel model, boolean onboarding) {
+        LanguageMenuHolder holder = new LanguageMenuHolder(model, onboarding);
         Inventory inventory = Bukkit.createInventory(holder, model.size(), render(model.title()));
         holder.inventory(inventory);
 
@@ -38,7 +43,7 @@ public final class LanguageMenuView {
     }
 
     private ItemStack icon(LanguageMenuModel model, LanguageMenuModel.Entry entry) {
-        ItemStack item = flagIcon(entry);
+        ItemStack item = flagIcon(entry.flagModel());
         ItemMeta meta = item.getItemMeta();
 
         // Italics are the default for renamed items and read as an accident.
@@ -63,8 +68,8 @@ public final class LanguageMenuView {
      * only exists from 1.21.4, above the API this jar is built against. Older
      * servers cannot parse it and get plain paper.</p>
      */
-    private static ItemStack flagIcon(LanguageMenuModel.Entry entry) {
-        return entry.flagModel().map(model -> {
+    static ItemStack flagIcon(Optional<String> flagModel) {
+        return flagModel.map(model -> {
             try {
                 return Bukkit.getItemFactory().createItemStack(
                         "minecraft:paper[minecraft:custom_model_data={strings:[\"" + model + "\"]}]");

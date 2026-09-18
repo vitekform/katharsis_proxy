@@ -1,15 +1,15 @@
 # The Paper companion
 
 `paper/` holds a backend plugin that replaces the proxy's `/language` with a
-clickable selector.
+clickable selector, and adds a `/settings` menu.
 
 ## What each side owns
 
 | | Proxy (Velocity) | Companion (Paper) |
 |---|---|---|
-| Player languages | stores and caches them | never stores anything |
+| Player languages and settings | stores and caches them | never stores anything |
 | Translations | every string, in `lang/` | only two, for when the proxy is unreachable |
-| `/language` | **never registered** | chest selector |
+| `/language`, `/settings` | **never registered** | chest menus |
 
 The split is deliberate: the companion holds no state and almost no text, so the
 two plugins cannot drift out of agreement about a player's language, and adding
@@ -96,6 +96,30 @@ not shown at all.
 
 If the proxy does not answer within `request-timeout-seconds`, the player is told
 the proxy is unreachable rather than being left with a frozen command.
+
+## Settings
+
+`/settings` asks the proxy for `get_settings_menu` and opens a three-row chest
+with two items on the middle row:
+
+- **Language** — the current language's flag, with its name in the lore.
+  Clicking it opens the language selector above.
+- **Discord chat** — lime dye with a glint while messages from the Discord chat
+  channels are shown in game, grey dye while they are hidden. Clicking it sends
+  `set_discord_chat` with the opposite value; once the proxy has stored it, the
+  item is redrawn in place and the proxy confirms the change in chat. Clicks
+  made while a change is still on its way are ignored.
+
+Discord chat is **hidden** for every player to begin with. A new player is asked
+about it on their first join: right after they pick a language in the selector
+that opens by itself — or close it without picking — a second chest asks
+*Show Discord chat in game?* with a green "yes" and a red "no". The question is
+fetched after the new language is stored, so it is asked in that language.
+Closing it without answering leaves Discord chat hidden. It is asked only once;
+after that, `/settings` is the place to change it.
+
+Every string in both menus comes from the proxy's `lang/` files, under the
+`settings-*` and `discord-chat-prompt-*` keys.
 
 ## Supported versions
 

@@ -57,3 +57,19 @@ discord-link-unavailable: "Account linking is unavailable right now. Please try 
 # In game, a message written in a Discord chat channel.
 # <player> is the author's linked Minecraft name, <message> what they wrote.
 discord-chat-message: "<dark_gray>[<blue>Discord</blue>]</dark_gray> <gray><player>:</gray> <white><message></white>"
+
+# The companion plugin's /settings menu.
+settings-title: "<dark_gray>Settings"
+settings-language: "<gold>Language"
+# <language> is the current language's own name.
+settings-language-hint: "<gray>Currently <white><language></white>. Click to change."
+settings-discord-chat: "<blue>Discord chat"
+settings-discord-chat-on: "<green>Shown in game.</green> <gray>Click to hide."
+settings-discord-chat-off: "<red>Hidden.</red> <gray>Click to show in game."
+
+# Asked once, on a player's first join, right after they pick a language.
+discord-chat-prompt-title: "<dark_gray>Show Discord chat in game?"
+discord-chat-prompt-yes: "<green>Yes, show it"
+discord-chat-prompt-no: "<red>No, keep it hidden"
+discord-chat-shown: "<green>Messages from Discord are now shown in chat. Change this any time with <gold>/settings</gold>.</green>"
+discord-chat-hidden: "<gray>Messages from Discord are now hidden. Change this any time with <gold>/settings</gold>.</gray>"

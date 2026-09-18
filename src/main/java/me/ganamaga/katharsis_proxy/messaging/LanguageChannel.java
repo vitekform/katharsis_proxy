@@ -48,13 +48,27 @@ public final class LanguageChannel {
      */
     public static final String OP_OPEN_MENU = "open_language_menu";
 
+    /**
+     * Everything the companion plugin needs to draw its {@code /settings}
+     * menu, and the Discord chat question a new player is asked, in the
+     * player's language. Response carries the extra fields documented in
+     * {@code docs/plugin-messaging.md}.
+     */
+    public static final String OP_SETTINGS = "get_settings_menu";
+
+    /**
+     * Shows or hides the Discord chat channels in game for a player. Request
+     * carries {@code true} or {@code false}.
+     */
+    public static final String OP_SET_DISCORD_CHAT = "set_discord_chat";
+
     /** Sent as the error field of a successful response. */
     public static final String ERROR_NONE = "";
 
     /** The request could not be decoded, or a field was missing. */
     public static final String ERROR_MALFORMED_REQUEST = "malformed_request";
 
-    /** The operation is not one of the three above. */
+    /** The operation is not one of those above. */
     public static final String ERROR_UNKNOWN_OPERATION = "unknown_operation";
 
     /** The uuid field was not a canonical UUID. */

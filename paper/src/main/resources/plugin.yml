@@ -10,3 +10,6 @@ commands:
     description: Open the language selector.
     aliases: [lang]
     usage: /language
+  settings:
+    description: Open your settings.
+    usage: /settings

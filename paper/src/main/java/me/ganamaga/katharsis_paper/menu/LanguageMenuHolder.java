@@ -14,14 +14,40 @@ import org.jetbrains.annotations.NotNull;
 public final class LanguageMenuHolder implements InventoryHolder {
 
     private final LanguageMenuModel model;
+    private final boolean onboarding;
+    private boolean answered;
     private Inventory inventory;
 
-    public LanguageMenuHolder(LanguageMenuModel model) {
+    /**
+     * @param onboarding whether this is the selector a new player is shown on
+     *                   their first join, which the Discord chat question follows
+     */
+    public LanguageMenuHolder(LanguageMenuModel model, boolean onboarding) {
         this.model = model;
+        this.onboarding = onboarding;
     }
 
     public LanguageMenuModel model() {
         return model;
+    }
+
+    /** Whether this selector is part of a new player's first join. */
+    public boolean onboarding() {
+        return onboarding;
+    }
+
+    /**
+     * Marks the selector as dealt with, so the next step of a first join is
+     * started once only.
+     *
+     * @return {@code true} the first time, {@code false} after that
+     */
+    public boolean markAnswered() {
+        if (answered) {
+            return false;
+        }
+        answered = true;
+        return true;
     }
 
     void inventory(Inventory inventory) {

@@ -14,6 +14,7 @@ import me.ganamaga.katharsis_proxy.entity.Player;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.MessageKey;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
@@ -41,11 +42,13 @@ public final class LanguageChannelListener {
     private final DatabaseManager database;
     private final PlayerRepository players;
     private final PlayerLanguageCache cache;
+    private final PlayerDiscordChatCache discordChat;
     private final CompanionRegistry companions;
 
     public LanguageChannelListener(ProxyServer proxy, Logger logger, LanguageRegistry registry,
                                    Messages messages, DatabaseManager database, PlayerRepository players,
-                                   PlayerLanguageCache cache, CompanionRegistry companions) {
+                                   PlayerLanguageCache cache, PlayerDiscordChatCache discordChat,
+                                   CompanionRegistry companions) {
         this.proxy = proxy;
         this.logger = logger;
         this.registry = registry;
@@ -53,6 +56,7 @@ public final class LanguageChannelListener {
         this.database = database;
         this.players = players;
         this.cache = cache;
+        this.discordChat = discordChat;
         this.companions = companions;
     }
 
@@ -87,6 +91,8 @@ public final class LanguageChannelListener {
             case LanguageChannel.OP_SET -> forPlayer(request, this::setLanguage);
             case LanguageChannel.OP_CLEAR -> forPlayer(request, this::clearLanguage);
             case LanguageChannel.OP_MENU -> forPlayer(request, this::menu);
+            case LanguageChannel.OP_SETTINGS -> forPlayer(request, this::settings);
+            case LanguageChannel.OP_SET_DISCORD_CHAT -> forPlayer(request, this::setDiscordChat);
             default -> request.failure(LanguageChannel.ERROR_UNKNOWN_OPERATION);
         };
     }
@@ -123,7 +129,7 @@ public final class LanguageChannelListener {
             companions.recordServerId(serverName, request.serverId());
         }
         return new Response(request.operation(), request.requestId(), request.uuid(), true,
-                "", LanguageChannel.ERROR_NONE, null, serverName);
+                "", LanguageChannel.ERROR_NONE, null, serverName, null);
     }
 
     private Response getLanguage(Request request, UUID playerId) {
@@ -182,7 +188,92 @@ public final class LanguageChannelListener {
                 new Menu(registry.template(language, MessageKey.MENU_TITLE),
                         registry.template(language, MessageKey.MENU_SELECT_HINT),
                         registry.template(language, MessageKey.MENU_CURRENT_HINT),
-                        entries), null);
+                        entries), null, null);
+    }
+
+    /**
+     * Answers with everything the companion's {@code /settings} menu and its
+     * first-join Discord chat question need, in the player's own language.
+     */
+    private Response settings(Request request, UUID playerId) {
+        Response current = getLanguage(request, playerId);
+        String language = current.success() ? current.language() : registry.defaultLanguage();
+        boolean shown;
+        try {
+            shown = discordChatOf(playerId);
+        } catch (SQLException e) {
+            logger.error("{} failed for {}.", request.operation(), playerId, e);
+            return request.failure(LanguageChannel.ERROR_DATABASE_ERROR);
+        }
+
+        return new Response(request.operation(), request.requestId(), request.uuid(), true,
+                language, LanguageChannel.ERROR_NONE, null, null,
+                new Settings(registry.template(language, MessageKey.SETTINGS_TITLE),
+                        registry.template(language, MessageKey.SETTINGS_LANGUAGE),
+                        registry.template(language, MessageKey.SETTINGS_LANGUAGE_HINT),
+                        registry.template(language, MessageKey.LANGUAGE_NAME),
+                        shown,
+                        registry.template(language, MessageKey.SETTINGS_DISCORD_CHAT),
+                        registry.template(language, MessageKey.SETTINGS_DISCORD_CHAT_ON),
+                        registry.template(language, MessageKey.SETTINGS_DISCORD_CHAT_OFF),
+                        registry.template(language, MessageKey.DISCORD_CHAT_PROMPT_TITLE),
+                        registry.template(language, MessageKey.DISCORD_CHAT_PROMPT_YES),
+                        registry.template(language, MessageKey.DISCORD_CHAT_PROMPT_NO)));
+    }
+
+    /**
+     * Whether {@code playerId} sees Discord chat: from the cache when warm,
+     * otherwise from their row. Hidden for a player with no row, or while the
+     * database is down, since that is where everyone starts.
+     */
+    private boolean discordChatOf(UUID playerId) throws SQLException {
+        Optional<Boolean> cached = discordChat.get(playerId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+        if (!database.isAvailable()) {
+            return false;
+        }
+        boolean shown = players.find(playerId).map(Player::discordChat).orElse(false);
+        discordChat.put(playerId, shown);
+        if (proxy.getPlayer(playerId).isEmpty()) {
+            discordChat.expireLater(playerId);
+        }
+        return shown;
+    }
+
+    private Response setDiscordChat(Request request, UUID playerId) {
+        Boolean shown = switch (request.payload()) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> null;
+        };
+        if (shown == null) {
+            return request.failure(LanguageChannel.ERROR_MALFORMED_REQUEST);
+        }
+        if (!database.isAvailable()) {
+            return request.failure(LanguageChannel.ERROR_DATABASE_UNAVAILABLE);
+        }
+        String language = cache.get(playerId).orElse(registry.defaultLanguage());
+        try {
+            if (!players.updateDiscordChat(playerId, shown)) {
+                // Someone with no row yet: give them one, then the setting.
+                players.createIfAbsent(playerId, language);
+                players.updateDiscordChat(playerId, shown);
+            }
+        } catch (SQLException | IllegalArgumentException e) {
+            logger.error("{} failed for {}.", request.operation(), playerId, e);
+            return request.failure(LanguageChannel.ERROR_DATABASE_ERROR);
+        }
+
+        discordChat.put(playerId, shown);
+        Optional<com.velocitypowered.api.proxy.Player> online = proxy.getPlayer(playerId);
+        if (online.isEmpty()) {
+            discordChat.expireLater(playerId);
+        }
+        online.ifPresent(player -> player.sendMessage(messages.prefixed(language,
+                shown ? MessageKey.DISCORD_CHAT_SHOWN : MessageKey.DISCORD_CHAT_HIDDEN)));
+        return request.success(language);
     }
 
     private Response store(Request request, UUID playerId, String language, boolean createIfMissing) {
@@ -249,7 +340,8 @@ public final class LanguageChannelListener {
 
     /** Operations whose request carries a fourth field. */
     private static boolean carriesPayload(String operation) {
-        return LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_ANNOUNCE.equals(operation);
+        return LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_ANNOUNCE.equals(operation)
+                || LanguageChannel.OP_SET_DISCORD_CHAT.equals(operation);
     }
 
     private void respond(ServerConnection source, Response response) {
@@ -277,6 +369,21 @@ public final class LanguageChannelListener {
             }
         }
 
+        Settings settings = response.settings();
+        if (settings != null) {
+            out.writeUTF(settings.title());
+            out.writeUTF(settings.languageLabel());
+            out.writeUTF(settings.languageHint());
+            out.writeUTF(settings.languageName());
+            out.writeBoolean(settings.discordChat());
+            out.writeUTF(settings.discordChatLabel());
+            out.writeUTF(settings.discordChatOnHint());
+            out.writeUTF(settings.discordChatOffHint());
+            out.writeUTF(settings.promptTitle());
+            out.writeUTF(settings.promptYes());
+            out.writeUTF(settings.promptNo());
+        }
+
         if (!source.sendPluginMessage(LanguageChannel.IDENTIFIER, out.toByteArray())) {
             logger.warn("Could not answer {} on {}: the server connection is gone.",
                     source.getServerInfo().getName(), LanguageChannel.IDENTIFIER.getId());
@@ -291,7 +398,7 @@ public final class LanguageChannelListener {
 
         Response success(String language) {
             return new Response(operation, requestId, uuid, true, language,
-                    LanguageChannel.ERROR_NONE, null, null);
+                    LanguageChannel.ERROR_NONE, null, null, null);
         }
 
         Response failure(String error) {
@@ -303,19 +410,25 @@ public final class LanguageChannelListener {
     private record Menu(String title, String selectHint, String currentHint, Map<String, String> entries) {
     }
 
+    /** The settings payload, present only on a {@code get_settings_menu} reply. */
+    private record Settings(String title, String languageLabel, String languageHint, String languageName,
+                            boolean discordChat, String discordChatLabel, String discordChatOnHint,
+                            String discordChatOffHint, String promptTitle, String promptYes, String promptNo) {
+    }
+
     /**
      * A response, echoing the request header so replies can be correlated.
      *
-     * <p>{@code menu} and {@code serverName} are the per-operation extras, each
-     * appended after the six base fields and each present for exactly one
-     * operation.</p>
+     * <p>{@code menu}, {@code serverName} and {@code settings} are the
+     * per-operation extras, each appended after the six base fields and each
+     * present for exactly one operation.</p>
      */
     private record Response(String operation, String requestId, String uuid,
                             boolean success, String language, String error,
-                            Menu menu, String serverName) {
+                            Menu menu, String serverName, Settings settings) {
 
         static Response failed(String operation, String requestId, String uuid, String error) {
-            return new Response(operation, requestId, uuid, false, "", error, null, null);
+            return new Response(operation, requestId, uuid, false, "", error, null, null, null);
         }
     }
 }

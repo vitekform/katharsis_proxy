@@ -7,6 +7,7 @@ import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.entity.Player;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import org.slf4j.Logger;
 
@@ -16,11 +17,13 @@ import java.util.UUID;
 
 /**
  * Makes sure every player who successfully joins the proxy has a row in the
- * database, and refreshes their cached language from it on each join.
+ * database, and refreshes their cached language and Discord chat setting from
+ * it on each join.
  *
  * <p>A player whose row is created here is new to the network: they get the
- * default language, and {@link FirstJoinMenuListener} opens the language
- * selector for them once they reach a server.</p>
+ * default language and Discord chat hidden, and {@link FirstJoinMenuListener}
+ * opens the language selector for them once they reach a server; the companion
+ * asks about Discord chat right after.</p>
  */
 public final class PlayerJoinListener {
 
@@ -29,16 +32,18 @@ public final class PlayerJoinListener {
     private final DatabaseManager database;
     private final PlayerRepository players;
     private final PlayerLanguageCache cache;
+    private final PlayerDiscordChatCache discordChat;
     private final FirstJoinMenuListener firstJoinMenu;
 
     public PlayerJoinListener(Logger logger, LanguageRegistry registry, DatabaseManager database,
                               PlayerRepository players, PlayerLanguageCache cache,
-                              FirstJoinMenuListener firstJoinMenu) {
+                              PlayerDiscordChatCache discordChat, FirstJoinMenuListener firstJoinMenu) {
         this.logger = logger;
         this.registry = registry;
         this.database = database;
         this.players = players;
         this.cache = cache;
+        this.discordChat = discordChat;
         this.firstJoinMenu = firstJoinMenu;
     }
 
@@ -48,36 +53,41 @@ public final class PlayerJoinListener {
         String username = event.getPlayer().getUsername();
 
         if (!database.isAvailable()) {
-            cache.put(playerId, registry.defaultLanguage());
+            remember(new Player(playerId, registry.defaultLanguage()));
             return null;
         }
 
         // Off the event thread: the login must not wait on the database.
-        return EventTask.async(() -> cache.put(playerId, loadLanguage(playerId, username)));
+        return EventTask.async(() -> remember(load(playerId, username)));
+    }
+
+    private void remember(Player player) {
+        cache.put(player.uuid(), player.language());
+        discordChat.put(player.uuid(), player.discordChat());
     }
 
     /**
-     * Reads the player's stored language, creating their row on a first join.
-     * Falls back to the default language if the database cannot be reached, so
-     * a player is never left without messages.
+     * Reads the player's stored settings, creating their row on a first join.
+     * Falls back to the defaults if the database cannot be reached, so a player
+     * is never left without messages.
      */
-    private String loadLanguage(UUID playerId, String username) {
-        String defaultLanguage = registry.defaultLanguage();
+    private Player load(UUID playerId, String username) {
+        Player defaults = new Player(playerId, registry.defaultLanguage());
         try {
             Optional<Player> stored = players.find(playerId);
             if (stored.isPresent()) {
-                return stored.get().language();
+                return stored.get();
             }
-            if (players.createIfAbsent(playerId, defaultLanguage)) {
+            if (players.createIfAbsent(playerId, defaults.language())) {
                 logger.info("Created a player entity for {} ({}) with language '{}'.",
-                        username, playerId, defaultLanguage);
+                        username, playerId, defaults.language());
                 firstJoinMenu.markFirstJoin(playerId);
             }
-            return defaultLanguage;
+            return defaults;
         } catch (SQLException | IllegalArgumentException e) {
             logger.error("Could not load the player entity for {} ({}); using '{}'.",
-                    username, playerId, defaultLanguage, e);
-            return defaultLanguage;
+                    username, playerId, defaults.language(), e);
+            return defaults;
         }
     }
 }

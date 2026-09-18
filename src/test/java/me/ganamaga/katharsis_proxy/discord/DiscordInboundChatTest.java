@@ -9,6 +9,7 @@ import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -46,6 +47,7 @@ class DiscordInboundChatTest {
     private final List<Map.Entry<String, String>> received = new CopyOnWriteArrayList<>();
 
     private CompanionRegistry companions;
+    private PlayerDiscordChatCache discordChat;
     private DiscordInboundChat inbound;
 
     @BeforeEach
@@ -68,8 +70,12 @@ class DiscordInboundChatTest {
         backends.put("survival", List.of("Eve"));
 
         companions = new CompanionRegistry(LOGGER);
+        discordChat = new PlayerDiscordChatCache();
+        // Everyone has Discord chat shown unless a test says otherwise.
+        backends.values().stream().flatMap(List::stream).forEach(name -> discordChat.put(idOf(name), true));
         inbound = new DiscordInboundChat(LOGGER, stubProxy(), new DiscordBot(LOGGER), null,
-                new Messages(registry, new PlayerLanguageCache()), companions, () -> config.config().discord());
+                new Messages(registry, new PlayerLanguageCache()), companions, discordChat,
+                () -> config.config().discord());
     }
 
     // --- stubs -------------------------------------------------------------
@@ -101,8 +107,12 @@ class DiscordInboundChatTest {
                 });
     }
 
+    private static UUID idOf(String name) {
+        return UUID.nameUUIDFromBytes(name.getBytes());
+    }
+
     private Player stubPlayer(String name) {
-        UUID id = UUID.nameUUIDFromBytes(name.getBytes());
+        UUID id = idOf(name);
         return (Player) Proxy.newProxyInstance(getClass().getClassLoader(),
                 new Class<?>[]{Player.class}, (proxy, method, args) -> {
                     if ("sendMessage".equals(method.getName()) && args[0] instanceof Component message) {
@@ -158,6 +168,20 @@ class DiscordInboundChatTest {
     }
 
     @Test
+    @DisplayName("players who have not turned Discord chat on do not get the message")
+    void skipsPlayersWithDiscordChatHidden() {
+        discordChat.clear();
+        discordChat.put(idOf("Alice"), true);
+        discordChat.put(idOf("Bob"), false);
+        // Carol has no entry at all, as when her setting could not be loaded.
+
+        int sent = inbound.deliver(inbound.serverIdsFor(111L), "Notch", "hello");
+
+        assertEquals(1, sent);
+        assertEquals(List.of("Alice"), recipients());
+    }
+
+    @Test
     @DisplayName("formatting tags in a Discord message are shown, never applied")
     void contentIsNotParsed() {
         inbound.deliver(Set.of("lifesteal"), "<red>Notch", "<bold>hi</bold> <click:run_command:/op me>x");
@@ -170,7 +194,7 @@ class DiscordInboundChatTest {
     @DisplayName("nothing listens while the bot is off")
     void registerWithoutBot() {
         assertFalse(new DiscordInboundChat(LOGGER, stubProxy(), new DiscordBot(LOGGER), null, null, companions,
-                DiscordConfig::new).register());
+                discordChat, DiscordConfig::new).register());
     }
 
     // --- content -----------------------------------------------------------

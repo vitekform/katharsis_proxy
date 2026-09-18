@@ -1,7 +1,9 @@
 # Language API over plugin messaging
 
 Backend servers can read and change a player's language through the
-`katharsis:language` plugin message channel. Three operations are exposed:
+`katharsis:language` plugin message channel, and the companion plugin reads
+and changes the rest of a player's settings through it too. These operations are
+exposed:
 
 | Operation           | Effect                                                            |
 |---------------------|-------------------------------------------------------------------|
@@ -9,6 +11,8 @@ Backend servers can read and change a player's language through the
 | `set_language`      | Stores a new language for the player.                              |
 | `clear_language`    | Resets the player's language to the configured `default-language`. |
 | `get_language_menu` | Everything needed to draw a language selector, already translated. |
+| `get_settings_menu` | Everything needed to draw `/settings` and the Discord chat question. |
+| `set_discord_chat`  | Shows or hides the Discord chat channels in game for the player.   |
 | `announce`          | Declares that this backend runs the companion plugin.              |
 
 Every request gets exactly one response on the same channel.
@@ -32,10 +36,10 @@ in the order given — there is no framing beyond the field order.
 
 | # | Field       | Type     | Notes                                                     |
 |---|-------------|----------|-----------------------------------------------------------|
-| 1 | `operation` | UTF      | `get_language`, `set_language` or `clear_language`         |
+| 1 | `operation` | UTF      | One of the operations above                                |
 | 2 | `requestId` | UTF      | Free-form, echoed back so you can correlate. May be empty. |
 | 3 | `uuid`      | UTF      | Target player, canonical dashed form                       |
-| 4 | `payload`   | UTF      | Present for **`set_language`** (the language code) and **`announce`** (the sender's version). Omit it for every other operation. |
+| 4 | `payload`   | UTF      | Present for **`set_language`** (the language code), **`set_discord_chat`** (`true` or `false`) and **`announce`** (the sender's version). Omit it for every other operation. |
 
 ### Response
 
@@ -57,6 +61,23 @@ A successful `get_language_menu` reply appends these fields after `error`:
 | 9 | `currentHint` | UTF     | Lore for the language the player already uses           |
 | 10| `count`       | int     | How many languages follow                               |
 | 11| *entries*     | UTF × 2 | `count` pairs of language code and its own display name |
+
+A successful `get_settings_menu` reply appends these fields after `error`. Every
+UTF field is a MiniMessage template:
+
+| # | Field                | Type    | Notes                                                    |
+|---|----------------------|---------|----------------------------------------------------------|
+| 7 | `title`              | UTF     | Title of `/settings`                                      |
+| 8 | `languageLabel`      | UTF     | Name of the item that opens the language selector         |
+| 9 | `languageHint`       | UTF     | Its lore, with a `<language>` placeholder                  |
+| 10| `languageName`       | UTF     | The current language's own name, for that placeholder      |
+| 11| `discordChat`        | boolean | Whether Discord chat is shown to the player               |
+| 12| `discordChatLabel`   | UTF     | Name of the item that shows or hides Discord chat         |
+| 13| `discordChatOnHint`  | UTF     | Its lore while Discord chat is shown                      |
+| 14| `discordChatOffHint` | UTF     | Its lore while Discord chat is hidden                     |
+| 15| `promptTitle`        | UTF     | Title of the first-join Discord chat question             |
+| 16| `promptYes`          | UTF     | The answer that shows Discord chat                        |
+| 17| `promptNo`           | UTF     | The answer that keeps it hidden                           |
 
 No other operation appends anything, so a reader that only handles the six base
 fields keeps working.
@@ -99,6 +120,25 @@ single translated string of its own.
 A player who has never chosen a language is not an error here: the reply
 succeeds and reports the configured default, so the menu still opens.
 
+### `get_settings_menu`
+
+Returns the player's current language in the `language` field, whether Discord
+chat is shown to them, and every string the companion's `/settings` menu and its
+first-join Discord chat question need, **already translated into that
+language**. Like `get_language_menu`, a player who has never joined is not an
+error: the reply succeeds with the default language and Discord chat hidden.
+
+### `set_discord_chat`
+
+Shows (`true`) or hides (`false`) the messages from the Discord chat channels in
+game for the player; anything else is `malformed_request` and nothing is
+written. It is stored in the player's row, which is created if they have none,
+and takes effect for the very next Discord message. The `language` field of the
+reply carries the player's language.
+
+If the player is online, the proxy confirms the change to them itself, in their
+language, just as for `set_language`.
+
 ### `announce`
 
 Tells the proxy that this backend runs the companion plugin. The proxy records
@@ -137,8 +177,10 @@ empty `language` and `error`, and no extra fields, so it decodes with the same
 reader as every reply.
 
 The companion answers by opening the selector for that player, a second after
-it arrives so the client's loading screen does not close it. A backend without
-the companion ignores it, and the player keeps the default language.
+it arrives so the client's loading screen does not close it, and asks about
+Discord chat once they have picked a language or closed the selector. A backend
+without the companion ignores it, and the player keeps the default language and
+Discord chat hidden.
 
 ### `clear_language`
 
@@ -154,7 +196,7 @@ the call still reports success.
 | Code                    | Meaning                                                      |
 |-------------------------|--------------------------------------------------------------|
 | `malformed_request`     | The payload was truncated or not in the format above.         |
-| `unknown_operation`     | `operation` was not one of the three names.                   |
+| `unknown_operation`     | `operation` was not one of the names above.                   |
 | `invalid_uuid`          | `uuid` was not a canonical UUID.                              |
 | `unknown_language`      | No file for that language in `lang/`.                         |
 | `unknown_player`        | No row for that player; they have never joined.               |
@@ -163,7 +205,8 @@ the call still reports success.
 
 ## Caching
 
-A language fetched or written through this channel is cached. For an **online**
+A language or Discord chat setting fetched or written through this channel is
+cached. For an **online**
 player the entry is pinned until they disconnect; for an **offline** player it is
 given the normal ten-minute retention window instead, so querying players who
 never join cannot grow the cache without bound.

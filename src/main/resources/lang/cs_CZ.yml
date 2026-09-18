@@ -55,3 +55,19 @@ discord-link-unavailable: "Propojení účtů teď není dostupné. Zkus to pros
 # Ve hře, zpráva napsaná v chatovacím kanálu na Discordu.
 # <player> je propojené Minecraft jméno autora, <message> to, co napsal.
 discord-chat-message: "<dark_gray>[<blue>Discord</blue>]</dark_gray> <gray><player>:</gray> <white><message></white>"
+
+# Nabídka /settings v doplňkovém pluginu.
+settings-title: "<dark_gray>Nastavení"
+settings-language: "<gold>Jazyk"
+# <language> je název aktuálního jazyka v něm samotném.
+settings-language-hint: "<gray>Právě <white><language></white>. Klikni pro změnu."
+settings-discord-chat: "<blue>Chat z Discordu"
+settings-discord-chat-on: "<green>Zobrazuje se ve hře.</green> <gray>Klikni pro skrytí."
+settings-discord-chat-off: "<red>Skrytý.</red> <gray>Klikni pro zobrazení ve hře."
+
+# Zeptáme se jednou, při prvním připojení, hned po výběru jazyka.
+discord-chat-prompt-title: "<dark_gray>Zobrazovat chat z Discordu?"
+discord-chat-prompt-yes: "<green>Ano, zobrazovat"
+discord-chat-prompt-no: "<red>Ne, nechat skrytý"
+discord-chat-shown: "<green>Zprávy z Discordu se ti teď zobrazují v chatu. Změnit to můžeš kdykoli příkazem <gold>/settings</gold>.</green>"
+discord-chat-hidden: "<gray>Zprávy z Discordu jsou teď skryté. Změnit to můžeš kdykoli příkazem <gold>/settings</gold>.</gray>"

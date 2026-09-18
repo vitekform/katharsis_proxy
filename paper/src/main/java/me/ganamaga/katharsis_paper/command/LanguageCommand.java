@@ -42,15 +42,18 @@ public final class LanguageCommand implements CommandExecutor {
             return true;
         }
 
-        open(player);
+        open(player, false);
         return true;
     }
 
     /**
      * Fetches the selector from the proxy and opens it for {@code player}, or
      * tells them the proxy is unreachable. Callable from any thread.
+     *
+     * @param onboarding whether this is a new player's first join, after which
+     *                   they are asked about Discord chat
      */
-    public void open(Player player) {
+    public void open(Player player, boolean onboarding) {
         client.requestMenu(player).whenComplete((response, failure) -> {
             if (failure != null || response == null || !response.success()) {
                 reportFailure(player, response, failure);
@@ -59,7 +62,7 @@ public final class LanguageCommand implements CommandExecutor {
             // Inventories may only be opened from the server thread.
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (player.isOnline()) {
-                    view.open(player, LanguageMenuModel.from(response));
+                    view.open(player, LanguageMenuModel.from(response), onboarding);
                 }
             });
         });

@@ -15,6 +15,7 @@ import me.ganamaga.katharsis_proxy.i18n.MessageKey;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.link.AccountLinkService;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
 import reactor.core.publisher.Mono;
@@ -44,6 +45,10 @@ import java.util.stream.Collectors;
  * <p>Only linked members can see the chat channels, so the author is shown by
  * their linked Minecraft name. Should someone unlinked get in anyway, or the
  * database be down, their Discord display name is used instead.</p>
+ *
+ * <p>Players only see these messages once they turn Discord chat on, which
+ * they are asked about on their first join and can change in
+ * {@code /settings}.</p>
  */
 public final class DiscordInboundChat {
 
@@ -71,19 +76,23 @@ public final class DiscordInboundChat {
     private final AccountLinkService links;
     private final Messages messages;
     private final CompanionRegistry companions;
+    private final PlayerDiscordChatCache discordChat;
     private final Supplier<DiscordConfig> config;
 
     /**
-     * @param config read on every message, so a reloaded channel map applies at once
+     * @param discordChat which players have Discord chat shown
+     * @param config      read on every message, so a reloaded channel map applies at once
      */
     public DiscordInboundChat(Logger logger, ProxyServer proxy, DiscordBot bot, AccountLinkService links,
-                              Messages messages, CompanionRegistry companions, Supplier<DiscordConfig> config) {
+                              Messages messages, CompanionRegistry companions, PlayerDiscordChatCache discordChat,
+                              Supplier<DiscordConfig> config) {
         this.logger = logger;
         this.proxy = proxy;
         this.bot = bot;
         this.links = links;
         this.messages = messages;
         this.companions = companions;
+        this.discordChat = discordChat;
         this.config = config;
     }
 
@@ -148,7 +157,7 @@ public final class DiscordInboundChat {
 
     /**
      * Sends the message to every player on a backend reporting as one of
-     * {@code serverIds}, each in their own language.
+     * {@code serverIds} who has Discord chat shown, each in their own language.
      *
      * @return how many players it was sent to
      */
@@ -163,6 +172,9 @@ public final class DiscordInboundChat {
                 continue;
             }
             for (Player player : server.getPlayersConnected()) {
+                if (!discordChat.isShown(player.getUniqueId())) {
+                    continue;
+                }
                 player.sendMessage(messages.render(messages.languageOf(player), MessageKey.DISCORD_CHAT_MESSAGE,
                         Placeholder.unparsed("player", sender),
                         Placeholder.unparsed("message", content)));

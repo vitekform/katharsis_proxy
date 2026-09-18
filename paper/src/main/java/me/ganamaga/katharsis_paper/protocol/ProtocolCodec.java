@@ -24,7 +24,8 @@ public final class ProtocolCodec {
      * Builds a request.
      *
      * @param payload the optional fourth field: the language code for
-     *                {@code set_language}, the plugin version for
+     *                {@code set_language}, {@code true} or {@code false} for
+     *                {@code set_discord_chat}, the plugin version for
      *                {@code announce}, ignored otherwise
      */
     public static byte[] encodeRequest(String operation, String requestId, String uuid, String payload) {
@@ -65,7 +66,8 @@ public final class ProtocolCodec {
 
     /** Operations whose request carries a fourth field. */
     private static boolean carriesPayload(String operation) {
-        return LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_ANNOUNCE.equals(operation);
+        return LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_ANNOUNCE.equals(operation)
+                || LanguageChannel.OP_SET_DISCORD_CHAT.equals(operation);
     }
 
     /**
@@ -82,17 +84,21 @@ public final class ProtocolCodec {
             String language = in.readUTF();
             String error = in.readUTF();
 
-            // Two operations append extra fields after the six base ones.
+            // Three operations append extra fields after the six base ones.
             ProxyResponse.Menu menu = null;
             String serverName = "";
+            ProxyResponse.Settings settings = null;
             if (success) {
                 if (LanguageChannel.OP_MENU.equals(operation)) {
                     menu = readMenu(in);
                 } else if (LanguageChannel.OP_ANNOUNCE.equals(operation)) {
                     serverName = in.readUTF();
+                } else if (LanguageChannel.OP_SETTINGS.equals(operation)) {
+                    settings = readSettings(in);
                 }
             }
-            return new ProxyResponse(operation, requestId, uuid, success, language, error, menu, serverName);
+            return new ProxyResponse(operation, requestId, uuid, success, language, error, menu, serverName,
+                    settings);
         } catch (IOException | RuntimeException e) {
             // Truncated or foreign payload; the caller drops it.
             return null;
@@ -113,5 +119,11 @@ public final class ProtocolCodec {
             languages.put(in.readUTF(), in.readUTF());
         }
         return new ProxyResponse.Menu(title, selectHint, currentHint, languages);
+    }
+
+    private static ProxyResponse.Settings readSettings(DataInputStream in) throws IOException {
+        return new ProxyResponse.Settings(in.readUTF(), in.readUTF(), in.readUTF(), in.readUTF(),
+                in.readBoolean(), in.readUTF(), in.readUTF(), in.readUTF(),
+                in.readUTF(), in.readUTF(), in.readUTF());
     }
 }

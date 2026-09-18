@@ -257,6 +257,55 @@ class ProtocolCodecTest {
         assertEquals("", ProtocolCodec.decodeResponse(reply).serverName());
     }
 
+    @Test
+    @DisplayName("a set_discord_chat request carries true or false in the fourth field")
+    void setDiscordChatCarriesTheChoice() throws IOException {
+        byte[] encoded = ProtocolCodec.encodeRequest(LanguageChannel.OP_SET_DISCORD_CHAT, "r13", PLAYER, "true");
+
+        DataInputStream in = new DataInputStream(new ByteArrayInputStream(encoded));
+        assertEquals(LanguageChannel.OP_SET_DISCORD_CHAT, in.readUTF());
+        assertEquals("r13", in.readUTF());
+        assertEquals(PLAYER, in.readUTF());
+        assertEquals("true", in.readUTF());
+        assertEquals(0, in.available());
+    }
+
+    @Test
+    @DisplayName("a settings response decodes the extra fields, in order")
+    void decodesSettings() throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(LanguageChannel.OP_SETTINGS);
+            out.writeUTF("r14");
+            out.writeUTF(PLAYER);
+            out.writeBoolean(true);
+            out.writeUTF("cs_CZ");
+            out.writeUTF("");
+            for (String field : new String[]{"title", "language", "hint <language>", "Čeština"}) {
+                out.writeUTF(field);
+            }
+            out.writeBoolean(true);
+            for (String field : new String[]{"discord", "on", "off", "question", "yes", "no"}) {
+                out.writeUTF(field);
+            }
+        }
+
+        ProxyResponse decoded = ProtocolCodec.decodeResponse(bytes.toByteArray());
+
+        assertEquals("cs_CZ", decoded.language());
+        assertEquals(new ProxyResponse.Settings("title", "language", "hint <language>", "Čeština", true,
+                "discord", "on", "off", "question", "yes", "no"), decoded.requireSettings());
+        assertTrue(decoded.menuData().isEmpty());
+    }
+
+    @Test
+    @DisplayName("a failed settings response carries no settings")
+    void failedSettingsHaveNone() throws IOException {
+        byte[] reply = response(LanguageChannel.OP_SETTINGS, "r15", PLAYER, false, "", "database_error");
+
+        assertNull(ProtocolCodec.decodeResponse(reply).settings());
+    }
+
     // --- helpers, mirroring what the proxy writes --------------------------
 
     private static byte[] response(String operation, String requestId, String uuid,

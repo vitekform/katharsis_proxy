@@ -15,10 +15,11 @@ import java.util.Optional;
  * @param menu      selector payload, present only on {@code get_language_menu}
  * @param serverName the name the proxy knows this server by, present only on
  *                   {@code announce}; empty when the proxy did not send one
+ * @param settings  settings payload, present only on {@code get_settings_menu}
  */
 public record ProxyResponse(String operation, String requestId, String uuid,
                             boolean success, String language, String error,
-                            Menu menu, String serverName) {
+                            Menu menu, String serverName, Settings settings) {
 
     public ProxyResponse {
         serverName = serverName == null ? "" : serverName;
@@ -45,6 +46,26 @@ public record ProxyResponse(String operation, String requestId, String uuid,
         }
     }
 
+    /**
+     * The settings payload. Every string is a MiniMessage template.
+     *
+     * @param title              menu title
+     * @param languageLabel      name of the item that opens the language selector
+     * @param languageHint       its lore, with a {@code <language>} placeholder
+     * @param languageName       the current language's own name, for that placeholder
+     * @param discordChat        whether Discord chat is shown to the player
+     * @param discordChatLabel   name of the item that shows or hides Discord chat
+     * @param discordChatOnHint  its lore while shown
+     * @param discordChatOffHint its lore while hidden
+     * @param promptTitle        title of the first-join Discord chat question
+     * @param promptYes          the answer that shows Discord chat
+     * @param promptNo           the answer that keeps it hidden
+     */
+    public record Settings(String title, String languageLabel, String languageHint, String languageName,
+                           boolean discordChat, String discordChatLabel, String discordChatOnHint,
+                           String discordChatOffHint, String promptTitle, String promptYes, String promptNo) {
+    }
+
     public Optional<Menu> menuData() {
         return Optional.ofNullable(menu);
     }
@@ -55,5 +76,13 @@ public record ProxyResponse(String operation, String requestId, String uuid,
             throw new IllegalStateException("response to " + operation + " carries no menu");
         }
         return menu;
+    }
+
+    /** The settings payload, or a failure if this response did not carry one. */
+    public Settings requireSettings() {
+        if (settings == null) {
+            throw new IllegalStateException("response to " + operation + " carries no settings");
+        }
+        return settings;
     }
 }

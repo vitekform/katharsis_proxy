@@ -39,6 +39,7 @@ import me.ganamaga.katharsis_proxy.motd.MotdPingListener;
 import me.ganamaga.katharsis_proxy.motd.generator.BannerGenerator;
 import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
 import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
@@ -81,6 +82,7 @@ public class Katharsis_proxy {
 
     private final List<ServerSwitchCommand> serverSwitchCommands = new ArrayList<>();
     private final PlayerLanguageCache languageCache = new PlayerLanguageCache();
+    private final PlayerDiscordChatCache discordChatCache = new PlayerDiscordChatCache();
 
     private ConfigManager configManager;
     private LanguageRegistry languageRegistry;
@@ -115,6 +117,7 @@ public class Katharsis_proxy {
     @Subscribe
     public void onProxyShutdown(ProxyShutdownEvent event) {
         languageCache.clear();
+        discordChatCache.clear();
         if (accountLinks != null) {
             accountLinks.clearCache();
         }
@@ -141,6 +144,7 @@ public class Katharsis_proxy {
         // listener so entries are still reclaimed when the database is down and
         // that listener was never registered.
         languageCache.expireLater(playerId);
+        discordChatCache.expireLater(playerId);
         if (accountLinks != null) {
             accountLinks.expireLater(playerId);
         }
@@ -195,7 +199,8 @@ public class Katharsis_proxy {
         FirstJoinMenuListener firstJoinMenu = new FirstJoinMenuListener(logger);
         proxy.getEventManager().register(this, firstJoinMenu);
         proxy.getEventManager().register(this,
-                new PlayerJoinListener(logger, languageRegistry, database, players, languageCache, firstJoinMenu));
+                new PlayerJoinListener(logger, languageRegistry, database, players, languageCache,
+                        discordChatCache, firstJoinMenu));
         logger.info(GREEN + "Player entities will be created on first join.");
     }
 
@@ -240,7 +245,8 @@ public class Katharsis_proxy {
         companions = new CompanionRegistry(logger);
         proxy.getChannelRegistrar().register(LanguageChannel.IDENTIFIER);
         proxy.getEventManager().register(this, new LanguageChannelListener(
-                proxy, logger, languageRegistry, messages, database, players, languageCache, companions));
+                proxy, logger, languageRegistry, messages, database, players, languageCache, discordChatCache,
+                companions));
         logger.info("Serving language requests on the '{}' plugin message channel.",
                 LanguageChannel.IDENTIFIER.getId());
 
@@ -256,7 +262,7 @@ public class Katharsis_proxy {
         }
 
         DiscordInboundChat inbound = new DiscordInboundChat(logger, proxy, discordBot, accountLinks, messages,
-                companions, () -> configManager.config().discord());
+                companions, discordChatCache, () -> configManager.config().discord());
         if (inbound.register() && relayed > 0) {
             logger.info("Delivering messages from the Discord chat channels in game.");
         }
@@ -371,6 +377,7 @@ public class Katharsis_proxy {
      */
     private void scheduleCacheSweep() {
         proxy.getScheduler().buildTask(this, () -> {
+            discordChatCache.evictExpired();
             int evicted = languageCache.evictExpired();
             if (evicted > 0) {
                 logger.debug("Dropped {} cached language(s); {} remaining.", evicted, languageCache.size());

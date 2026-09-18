@@ -132,4 +132,10 @@ class PluginDescriptorTest {
         assertTrue(yaml.contains("\n  language:"), "plugin.yml must declare the language command");
         assertTrue(yaml.contains("aliases: [lang]"), "the /lang alias replaces the proxy's");
     }
+
+    @Test
+    @DisplayName("/settings is declared, since the command is registered in code")
+    void settingsCommandIsDeclared() throws IOException {
+        assertTrue(resource("plugin.yml").contains("\n  settings:"), "plugin.yml must declare the settings command");
+    }
 }

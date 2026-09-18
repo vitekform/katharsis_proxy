@@ -1,13 +1,17 @@
 package me.ganamaga.katharsis_paper;
 
 import me.ganamaga.katharsis_paper.command.LanguageCommand;
+import me.ganamaga.katharsis_paper.command.SettingsCommand;
 import me.ganamaga.katharsis_paper.listener.AnnounceListener;
 import me.ganamaga.katharsis_paper.listener.ChatListener;
 import me.ganamaga.katharsis_paper.listener.LanguageMenuListener;
+import me.ganamaga.katharsis_paper.listener.SettingsMenuListener;
 import me.ganamaga.katharsis_paper.menu.LanguageMenuView;
+import me.ganamaga.katharsis_paper.menu.SettingsMenuView;
 import me.ganamaga.katharsis_paper.protocol.ChatChannel;
 import me.ganamaga.katharsis_paper.protocol.LanguageChannel;
 import me.ganamaga.katharsis_paper.protocol.ProxyClient;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -22,8 +26,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  * and posts it to Discord. Messages from Discord are delivered in game by the
  * proxy itself; the companion only tells it this server's id.</p>
  *
- * <p>When the proxy says a player has joined the network for the first time,
- * the selector opens for them on its own.</p>
+ * <p>{@code /settings} gathers the language and whether messages from Discord
+ * are shown in game. When the proxy says a player has joined the network for
+ * the first time, the language selector opens for them on its own, followed by
+ * the question about Discord chat.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
 
@@ -48,9 +54,6 @@ public final class KatharsisPaper extends JavaPlugin {
         getServer().getMessenger().registerOutgoingPluginChannel(this, LanguageChannel.CHANNEL);
         getServer().getMessenger().registerIncomingPluginChannel(this, LanguageChannel.CHANNEL, client);
 
-        getServer().getPluginManager().registerEvents(
-                new LanguageMenuListener(this, client, messages), this);
-
         String serverId = getConfig().getString("server-id", "").strip();
         getServer().getMessenger().registerOutgoingPluginChannel(this, ChatChannel.CHANNEL);
         getServer().getPluginManager().registerEvents(new ChatListener(this, serverId), this);
@@ -60,11 +63,22 @@ public final class KatharsisPaper extends JavaPlugin {
 
         LanguageCommand languageCommand =
                 new LanguageCommand(this, client, new LanguageMenuView(), messages);
-        registerLanguageCommand(languageCommand);
-        // The proxy asks for this when a player joins the network for the first time.
+        SettingsMenuView settingsView = new SettingsMenuView();
+        SettingsCommand settingsCommand = new SettingsCommand(this, client, settingsView, messages);
+        registerCommand("language", languageCommand);
+        registerCommand("settings", settingsCommand);
+
+        getServer().getPluginManager().registerEvents(
+                new LanguageMenuListener(this, client, messages, settingsCommand::openDiscordChatPrompt), this);
+        getServer().getPluginManager().registerEvents(
+                new SettingsMenuListener(this, client, settingsView, languageCommand, messages), this);
+
+        // The proxy asks for this when a player joins the network for the
+        // first time. Picking a language then leads on to the Discord chat
+        // question.
         client.onOpenMenuRequest(player -> getServer().getScheduler().runTaskLater(this, () -> {
             if (player.isOnline()) {
-                languageCommand.open(player);
+                languageCommand.open(player, true);
             }
         }, FIRST_JOIN_MENU_DELAY_TICKS));
 
@@ -83,13 +97,13 @@ public final class KatharsisPaper extends JavaPlugin {
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
     }
 
-    private void registerLanguageCommand(LanguageCommand languageCommand) {
-        PluginCommand command = getCommand("language");
+    private void registerCommand(String name, CommandExecutor executor) {
+        PluginCommand command = getCommand(name);
         if (command == null) {
             // Only reachable if plugin.yml and this class disagree.
-            getLogger().severe("/language is missing from plugin.yml; the selector is unavailable.");
+            getLogger().severe("/" + name + " is missing from plugin.yml; it is unavailable.");
             return;
         }
-        command.setExecutor(languageCommand);
+        command.setExecutor(executor);
     }
 }

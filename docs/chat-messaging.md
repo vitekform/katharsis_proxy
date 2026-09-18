@@ -90,10 +90,17 @@ posts are waiting, new ones are dropped until the bot catches up.
 ## Messages from Discord
 
 The other direction: what members write in a chat channel is shown in game to
-every player on the servers whose id `discord.chat-channels` maps to that
+the players on the servers whose id `discord.chat-channels` maps to that
 channel. Several ids may share one channel, and all of their players see its
 messages. The proxy sends the message to each player itself, so it needs no
 plugin message and works on backends without the companion.
+
+**Only players who turned Discord chat on see these messages.** It is off for
+everyone to begin with. A new player is asked about it on their first join, right
+after picking a language, and anyone can change it later in `/settings`; both
+come from the companion plugin. The choice is stored in the `discord_chat`
+column of `katharsis_players` and cached while the player is online. While the
+database is down nobody's choice can be read, so nobody sees Discord chat.
 
 A message appears as `[Discord] Notch: hello`, from the `discord-chat-message`
 entry in the player's language file. The name is the author's **linked Minecraft

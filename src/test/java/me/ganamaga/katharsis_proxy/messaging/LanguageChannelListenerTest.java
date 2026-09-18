@@ -18,6 +18,7 @@ import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
+import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -56,6 +57,7 @@ class LanguageChannelListenerTest {
     private DatabaseManager database;
     private PlayerRepository players;
     private PlayerLanguageCache cache;
+    private PlayerDiscordChatCache discordChat;
     private LanguageChannelListener listener;
     private CompanionRegistry companions;
     private ServerConnection backend;
@@ -71,6 +73,7 @@ class LanguageChannelListenerTest {
         registry.load("en_US");
 
         cache = new PlayerLanguageCache();
+        discordChat = new PlayerDiscordChatCache();
         database = new DatabaseManager(logger, directory);
         database.start(config.config().database());
         players = new PlayerRepository(database);
@@ -80,7 +83,7 @@ class LanguageChannelListenerTest {
         ProxyServer proxy = stubProxy();
         companions = new CompanionRegistry(logger);
         listener = new LanguageChannelListener(proxy, logger, registry,
-                new Messages(registry, cache), database, players, cache, companions);
+                new Messages(registry, cache), database, players, cache, discordChat, companions);
     }
 
     @AfterEach
@@ -154,7 +157,7 @@ class LanguageChannelListenerTest {
         out.writeUTF(operation);
         out.writeUTF(requestId);
         out.writeUTF(uuid);
-        if (LanguageChannel.OP_SET.equals(operation)) {
+        if (LanguageChannel.OP_SET.equals(operation) || LanguageChannel.OP_SET_DISCORD_CHAT.equals(operation)) {
             out.writeUTF(language);
         }
         return out.toByteArray();
@@ -172,7 +175,13 @@ class LanguageChannelListenerTest {
 
     private record Reply(String operation, String requestId, String uuid,
                          boolean success, String language, String error,
-                         Menu menu, String serverName) {
+                         Menu menu, String serverName, Settings settings) {
+    }
+
+    /** The extra fields a get_settings_menu reply carries. */
+    private record Settings(String title, String languageLabel, String languageHint, String languageName,
+                            boolean discordChat, String discordChatLabel, String discordChatOnHint,
+                            String discordChatOffHint, String promptTitle, String promptYes, String promptNo) {
     }
 
     /** The extra fields a get_language_menu reply carries. */
@@ -217,8 +226,12 @@ class LanguageChannelListenerTest {
         String error = in.readUTF();
         Menu menu = LanguageChannel.OP_MENU.equals(operation) && success ? readMenu(in) : null;
         String serverName = LanguageChannel.OP_ANNOUNCE.equals(operation) && success ? in.readUTF() : "";
-        return new Delivery(new Reply(operation, requestId, uuid, success, language, error, menu, serverName),
-                forwarded);
+        Settings settings = LanguageChannel.OP_SETTINGS.equals(operation) && success
+                ? new Settings(in.readUTF(), in.readUTF(), in.readUTF(), in.readUTF(), in.readBoolean(),
+                        in.readUTF(), in.readUTF(), in.readUTF(), in.readUTF(), in.readUTF(), in.readUTF())
+                : null;
+        return new Delivery(new Reply(operation, requestId, uuid, success, language, error, menu, serverName,
+                settings), forwarded);
     }
 
     private static Menu readMenu(ByteArrayDataInput in) {
@@ -513,6 +526,78 @@ class LanguageChannelListenerTest {
         call(backend, request(LanguageChannel.OP_SET, "r22", id.toString(), "cs_CZ"));
 
         assertTrue(sentToPlayer.isEmpty());
+    }
+
+    @Test
+    @DisplayName("get_settings_menu is translated and reports Discord chat hidden for a new player")
+    void settingsMenu() throws Exception {
+        UUID id = UUID.randomUUID();
+        players.createIfAbsent(id, "cs_CZ");
+
+        Reply reply = call(backend, request(LanguageChannel.OP_SETTINGS, "s1", id.toString(), null));
+
+        assertTrue(reply.success());
+        assertEquals("cs_CZ", reply.language());
+        Settings settings = reply.settings();
+        assertEquals("<dark_gray>Nastavení", settings.title());
+        assertEquals("Čeština", settings.languageName());
+        assertFalse(settings.discordChat(), "Discord chat starts hidden");
+        assertEquals("<dark_gray>Zobrazovat chat z Discordu?", settings.promptTitle());
+    }
+
+    @Test
+    @DisplayName("get_settings_menu opens for a player who has never joined, with the defaults")
+    void settingsMenuForUnknownPlayer() throws Exception {
+        Reply reply = call(backend, request(LanguageChannel.OP_SETTINGS, "s2", UUID.randomUUID().toString(), null));
+
+        assertTrue(reply.success());
+        assertEquals("en_US", reply.language());
+        assertFalse(reply.settings().discordChat());
+    }
+
+    @Test
+    @DisplayName("set_discord_chat persists, caches, tells the player and shows up in the settings")
+    void setDiscordChat() throws Exception {
+        UUID id = UUID.randomUUID();
+        players.createIfAbsent(id, "en_US");
+        online.add(id);
+
+        Reply on = call(backend, request(LanguageChannel.OP_SET_DISCORD_CHAT, "s3", id.toString(), "true"));
+
+        assertTrue(on.success());
+        assertTrue(players.find(id).orElseThrow().discordChat());
+        assertTrue(discordChat.isShown(id));
+        assertEquals(1, sentToPlayer.size(), "the player is told");
+        assertTrue(call(backend, request(LanguageChannel.OP_SETTINGS, "s4", id.toString(), null))
+                .settings().discordChat());
+
+        call(backend, request(LanguageChannel.OP_SET_DISCORD_CHAT, "s5", id.toString(), "false"));
+        assertFalse(players.find(id).orElseThrow().discordChat());
+        assertFalse(discordChat.isShown(id));
+    }
+
+    @Test
+    @DisplayName("set_discord_chat creates a row for a player who has never joined")
+    void setDiscordChatCreatesRow() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        assertTrue(call(backend, request(LanguageChannel.OP_SET_DISCORD_CHAT, "s6", id.toString(), "true")).success());
+
+        assertTrue(players.find(id).orElseThrow().discordChat());
+        assertEquals("en_US", players.find(id).orElseThrow().language());
+    }
+
+    @Test
+    @DisplayName("set_discord_chat refuses anything but true or false")
+    void setDiscordChatRejectsGarbage() throws Exception {
+        UUID id = UUID.randomUUID();
+        players.createIfAbsent(id, "en_US");
+
+        Reply reply = call(backend, request(LanguageChannel.OP_SET_DISCORD_CHAT, "s7", id.toString(), "yes"));
+
+        assertFalse(reply.success());
+        assertEquals(LanguageChannel.ERROR_MALFORMED_REQUEST, reply.error());
+        assertFalse(players.find(id).orElseThrow().discordChat());
     }
 
     /**

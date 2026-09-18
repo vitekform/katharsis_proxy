@@ -97,7 +97,46 @@ public enum MessageKey {
      * {@code <player>}, the author's linked Minecraft name, and
      * {@code <message>}.
      */
-    DISCORD_CHAT_MESSAGE("discord-chat-message");
+    DISCORD_CHAT_MESSAGE("discord-chat-message"),
+
+    /** Title of the companion plugin's /settings menu. Placeholders: none. */
+    SETTINGS_TITLE("settings-title"),
+
+    /** Name of the settings item that opens the language selector. Placeholders: none. */
+    SETTINGS_LANGUAGE("settings-language"),
+
+    /**
+     * Lore on the language item. Placeholders: {@code <language>}, the
+     * current language's own name, filled in by the companion.
+     */
+    SETTINGS_LANGUAGE_HINT("settings-language-hint"),
+
+    /** Name of the settings item that shows or hides Discord chat. Placeholders: none. */
+    SETTINGS_DISCORD_CHAT("settings-discord-chat"),
+
+    /** Lore on the Discord chat item while it is shown. Placeholders: none. */
+    SETTINGS_DISCORD_CHAT_ON("settings-discord-chat-on"),
+
+    /** Lore on the Discord chat item while it is hidden. Placeholders: none. */
+    SETTINGS_DISCORD_CHAT_OFF("settings-discord-chat-off"),
+
+    /**
+     * Title of the question a new player is asked after picking a language:
+     * should Discord chat be shown in game? Placeholders: none.
+     */
+    DISCORD_CHAT_PROMPT_TITLE("discord-chat-prompt-title"),
+
+    /** The answer that shows Discord chat. Placeholders: none. */
+    DISCORD_CHAT_PROMPT_YES("discord-chat-prompt-yes"),
+
+    /** The answer that keeps Discord chat hidden. Placeholders: none. */
+    DISCORD_CHAT_PROMPT_NO("discord-chat-prompt-no"),
+
+    /** In game, Discord chat is now shown. Placeholders: none. */
+    DISCORD_CHAT_SHOWN("discord-chat-shown"),
+
+    /** In game, Discord chat is now hidden. Placeholders: none. */
+    DISCORD_CHAT_HIDDEN("discord-chat-hidden");
 
     private final String key;
 

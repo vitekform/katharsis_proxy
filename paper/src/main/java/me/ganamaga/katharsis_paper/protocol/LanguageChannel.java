@@ -31,6 +31,15 @@ public final class LanguageChannel {
      */
     public static final String OP_OPEN_MENU = "open_language_menu";
 
+    /**
+     * Everything needed to draw the {@code /settings} menu and the first-join
+     * Discord chat question, in the player's language.
+     */
+    public static final String OP_SETTINGS = "get_settings_menu";
+
+    /** Shows or hides Discord chat in game for a player. */
+    public static final String OP_SET_DISCORD_CHAT = "set_discord_chat";
+
     /** The error field of a successful response. */
     public static final String ERROR_NONE = "";
 

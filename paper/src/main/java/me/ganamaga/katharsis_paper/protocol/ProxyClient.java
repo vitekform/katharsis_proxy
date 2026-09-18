@@ -57,6 +57,20 @@ public final class ProxyClient implements PluginMessageListener {
     }
 
     /**
+     * Asks the proxy for everything needed to draw {@code player}'s settings.
+     *
+     * @return the reply, completing on the server thread
+     */
+    public CompletableFuture<ProxyResponse> requestSettings(Player player) {
+        return send(player, LanguageChannel.OP_SETTINGS, player.getUniqueId(), "");
+    }
+
+    /** Asks the proxy to show or hide Discord chat in game for {@code player}. */
+    public CompletableFuture<ProxyResponse> setDiscordChat(Player player, boolean shown) {
+        return send(player, LanguageChannel.OP_SET_DISCORD_CHAT, player.getUniqueId(), Boolean.toString(shown));
+    }
+
+    /**
      * Tells the proxy this server owns the selector.
      *
      * <p>A plugin message needs a player to travel on, so this can only be sent
