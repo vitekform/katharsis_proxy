@@ -87,6 +87,41 @@ database is down. Messages are posted in order, one at a time, on the bot's own
 thread, so a busy chat can fall behind Discord's rate limits. Once a thousand
 posts are waiting, new ones are dropped until the bot catches up.
 
+## Messages from Discord
+
+The other direction: what members write in a chat channel is shown in game to
+every player on the servers whose id `discord.chat-channels` maps to that
+channel. Several ids may share one channel, and all of their players see its
+messages. The proxy sends the message to each player itself, so it needs no
+plugin message and works on backends without the companion.
+
+A message appears as `[Discord] Notch: hello`, from the `discord-chat-message`
+entry in the player's language file. The name is the author's **linked Minecraft
+name**: the chat channels should only be visible to linked members. For anyone
+unlinked who gets in anyway, or while the database is down, their Discord display
+name is used instead.
+
+- Messages from bots, this one included, and from webhooks are ignored, so chat
+  posted from the game never comes back into it.
+- Only ordinary messages and replies are shown; joins, pins and boosts are not.
+- User mentions show as `@name`, roles as `@role`, channels as `#channel`,
+  custom emoji as `:name:`, and attachments and stickers as `[file name]`.
+- The text is shown as written: MiniMessage tags in it are not applied. Line
+  breaks become spaces, and anything past 256 characters is cut off.
+
+This needs the bot's **Message Content** intent, a privileged intent: switch it
+on in the Discord developer portal under Applications > Bot > Privileged Gateway
+Intents. With `discord.relay-to-minecraft: true` (the default) and the intent off
+in the portal, Discord refuses the login and the whole bot, `/link` included,
+stays offline. Set `relay-to-minecraft: false` to post chat to Discord only.
+
+### Which backends a server id means
+
+A backend is known by its `velocity.toml` name until it reports another id. The
+companion reports its `server-id` when it announces itself (on the first join
+and at most once a minute after), and with every chat report, so a proxy that
+restarts relearns it as soon as someone joins.
+
 ## The companion's reports
 
 The companion listens to Paper's `AsyncChatEvent` at `MONITOR` priority, with

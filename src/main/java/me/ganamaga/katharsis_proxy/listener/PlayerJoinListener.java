@@ -17,6 +17,10 @@ import java.util.UUID;
 /**
  * Makes sure every player who successfully joins the proxy has a row in the
  * database, and refreshes their cached language from it on each join.
+ *
+ * <p>A player whose row is created here is new to the network: they get the
+ * default language, and {@link FirstJoinMenuListener} opens the language
+ * selector for them once they reach a server.</p>
  */
 public final class PlayerJoinListener {
 
@@ -25,14 +29,17 @@ public final class PlayerJoinListener {
     private final DatabaseManager database;
     private final PlayerRepository players;
     private final PlayerLanguageCache cache;
+    private final FirstJoinMenuListener firstJoinMenu;
 
     public PlayerJoinListener(Logger logger, LanguageRegistry registry, DatabaseManager database,
-                              PlayerRepository players, PlayerLanguageCache cache) {
+                              PlayerRepository players, PlayerLanguageCache cache,
+                              FirstJoinMenuListener firstJoinMenu) {
         this.logger = logger;
         this.registry = registry;
         this.database = database;
         this.players = players;
         this.cache = cache;
+        this.firstJoinMenu = firstJoinMenu;
     }
 
     @Subscribe
@@ -64,6 +71,7 @@ public final class PlayerJoinListener {
             if (players.createIfAbsent(playerId, defaultLanguage)) {
                 logger.info("Created a player entity for {} ({}) with language '{}'.",
                         username, playerId, defaultLanguage);
+                firstJoinMenu.markFirstJoin(playerId);
             }
             return defaultLanguage;
         } catch (SQLException | IllegalArgumentException e) {

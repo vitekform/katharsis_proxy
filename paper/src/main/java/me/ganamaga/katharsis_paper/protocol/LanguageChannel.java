@@ -25,6 +25,12 @@ public final class LanguageChannel {
     /** Everything needed to draw the selector, in the player's language. */
     public static final String OP_MENU = "get_language_menu";
 
+    /**
+     * Sent by the proxy, unasked, when a player joins the network for the
+     * first time: open the selector for them.
+     */
+    public static final String OP_OPEN_MENU = "open_language_menu";
+
     /** The error field of a successful response. */
     public static final String ERROR_NONE = "";
 

@@ -157,6 +157,17 @@ discord:
   #   lifesteal: 234567890123456789
   chat-channels: {}
 
+  # Deliver what members write in those chat channels to the players on the
+  # servers mapped to them, shown by their linked Minecraft name. Several
+  # servers may share a channel; all of them get its messages. Messages from
+  # bots and webhooks are ignored.
+  #
+  # The bot needs the Message Content intent to read messages: switch it on in
+  # the developer portal (Applications > Bot > Privileged Gateway Intents).
+  # While this is true and the intent is off there, Discord refuses the login
+  # and the whole bot, /link included, stays offline.
+  relay-to-minecraft: true
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

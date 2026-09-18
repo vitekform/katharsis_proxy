@@ -26,6 +26,12 @@ public class DiscordConfig {
     /** Server id to the id of the Discord channel its chat is posted to. */
     private Map<String, Long> chatChannels = new HashMap<>();
 
+    /**
+     * Deliver what linked members write in the chat channels to players on the
+     * servers mapped to them. Needs the privileged Message Content intent.
+     */
+    private boolean relayToMinecraft = true;
+
     public boolean enabled() {
         return enabled;
     }
@@ -45,5 +51,10 @@ public class DiscordConfig {
     /** Server ids mapped to Discord channel ids. Servers not listed are not relayed. */
     public Map<String, Long> chatChannels() {
         return chatChannels == null ? Map.of() : chatChannels;
+    }
+
+    /** Whether messages in the chat channels are delivered in game. */
+    public boolean relayToMinecraft() {
+        return relayToMinecraft;
     }
 }

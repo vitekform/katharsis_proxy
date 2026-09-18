@@ -18,6 +18,7 @@ import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
 
+import java.io.ByteArrayInputStream;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -118,6 +119,9 @@ public final class LanguageChannelListener {
     private Response announce(Request request, ServerConnection source) {
         String serverName = source.getServerInfo().getName();
         companions.announce(serverName, request.payload());
+        if (request.serverId() != null) {
+            companions.recordServerId(serverName, request.serverId());
+        }
         return new Response(request.operation(), request.requestId(), request.uuid(), true,
                 "", LanguageChannel.ERROR_NONE, null, serverName);
     }
@@ -227,12 +231,16 @@ public final class LanguageChannelListener {
 
     private Request decode(byte[] data) {
         try {
-            ByteArrayDataInput in = ByteStreams.newDataInput(data);
+            ByteArrayInputStream bytes = new ByteArrayInputStream(data);
+            ByteArrayDataInput in = ByteStreams.newDataInput(bytes);
             String operation = in.readUTF();
             String requestId = in.readUTF();
             String uuid = in.readUTF();
             String payload = carriesPayload(operation) ? in.readUTF() : "";
-            return new Request(operation, requestId, uuid, payload);
+            // Optional, so companions from before server ids were announced still work.
+            String serverId = LanguageChannel.OP_ANNOUNCE.equals(operation) && bytes.available() > 0
+                    ? in.readUTF() : null;
+            return new Request(operation, requestId, uuid, payload, serverId);
         } catch (IllegalStateException | IndexOutOfBoundsException e) {
             // Guava wraps a truncated buffer in an unchecked exception.
             return null;
@@ -275,8 +283,11 @@ public final class LanguageChannelListener {
         }
     }
 
-    /** A decoded request. {@code payload} is the optional fourth field. */
-    private record Request(String operation, String requestId, String uuid, String payload) {
+    /**
+     * A decoded request. {@code payload} is the optional fourth field, and
+     * {@code serverId} the fifth an announcement may carry, or {@code null}.
+     */
+    private record Request(String operation, String requestId, String uuid, String payload, String serverId) {
 
         Response success(String language) {
             return new Response(operation, requestId, uuid, true, language,

@@ -33,19 +33,21 @@ public final class ChatChannelListener {
     private final DatabaseManager database;
     private final ChatMessageRepository chatMessages;
     private final ChatRelay relay;
+    private final CompanionRegistry companions;
     private final Clock clock;
 
     public ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages,
-                               ChatRelay relay) {
-        this(logger, database, chatMessages, relay, Clock.systemUTC());
+                               ChatRelay relay, CompanionRegistry companions) {
+        this(logger, database, chatMessages, relay, companions, Clock.systemUTC());
     }
 
     ChatChannelListener(Logger logger, DatabaseManager database, ChatMessageRepository chatMessages,
-                        ChatRelay relay, Clock clock) {
+                        ChatRelay relay, CompanionRegistry companions, Clock clock) {
         this.logger = logger;
         this.database = database;
         this.chatMessages = chatMessages;
         this.relay = relay;
+        this.companions = companions;
         this.clock = clock;
     }
 
@@ -72,6 +74,10 @@ public final class ChatChannelListener {
             return null;
         }
         ChatMessage message = report.message();
+
+        // So Discord messages reach this backend under the id it reports as,
+        // even if it has not announced since the proxy started.
+        companions.recordServerId(server, report.serverId());
 
         // Independent of the database, so chat still reaches Discord while it is down.
         relay.relay(report.serverId(), message);

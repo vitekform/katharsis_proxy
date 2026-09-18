@@ -22,10 +22,12 @@ import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.discord.DiscordAccountLinking;
 import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
+import me.ganamaga.katharsis_proxy.discord.DiscordInboundChat;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.link.AccountLinkService;
 import me.ganamaga.katharsis_proxy.listener.AccountLinkJoinListener;
+import me.ganamaga.katharsis_proxy.listener.FirstJoinMenuListener;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
@@ -92,6 +94,7 @@ public class Katharsis_proxy {
     private AccountLinkService accountLinks;
     private DiscordAccountLinking discordLinking;
     private LinkCommand linkCommand;
+    private CompanionRegistry companions;
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
@@ -189,9 +192,11 @@ public class Katharsis_proxy {
             return;
         }
 
+        FirstJoinMenuListener firstJoinMenu = new FirstJoinMenuListener(logger);
+        proxy.getEventManager().register(this, firstJoinMenu);
         proxy.getEventManager().register(this,
-                new PlayerJoinListener(logger, languageRegistry, database, players, languageCache));
-        logger.info(GREEN + "Player entities will be created on first join.");
+                new PlayerJoinListener(logger, languageRegistry, database, players, languageCache, firstJoinMenu));
+        logger.info(GREEN + "Player entities will be created on first join, which opens the language selector.");
     }
 
     private void registerCommands() {
@@ -232,7 +237,7 @@ public class Katharsis_proxy {
      * instead of silence and chat reports are still kept away from clients.
      */
     private void registerPluginMessaging() {
-        CompanionRegistry companions = new CompanionRegistry(logger);
+        companions = new CompanionRegistry(logger);
         proxy.getChannelRegistrar().register(LanguageChannel.IDENTIFIER);
         proxy.getEventManager().register(this, new LanguageChannelListener(
                 proxy, logger, languageRegistry, messages, database, players, languageCache, companions));
@@ -241,12 +246,19 @@ public class Katharsis_proxy {
 
         proxy.getChannelRegistrar().register(ChatChannel.IDENTIFIER);
         DiscordChatRelay discordRelay = new DiscordChatRelay(logger, discordBot, () -> configManager.config().discord());
-        proxy.getEventManager().register(this, new ChatChannelListener(logger, database, chatMessages, discordRelay));
+        proxy.getEventManager().register(this,
+                new ChatChannelListener(logger, database, chatMessages, discordRelay, companions));
         logger.info("Logging chat reported on the '{}' plugin message channel.",
                 ChatChannel.IDENTIFIER.getId());
         int relayed = configManager.config().discord().chatChannels().size();
         if (discordBot.isAccepting() && relayed > 0) {
             logger.info("Posting chat from {} server(s) to Discord.", relayed);
+        }
+
+        DiscordInboundChat inbound = new DiscordInboundChat(logger, proxy, discordBot, accountLinks, messages,
+                companions, () -> configManager.config().discord());
+        if (inbound.register() && relayed > 0) {
+            logger.info("Delivering messages from the Discord chat channels in game.");
         }
     }
 
@@ -342,7 +354,7 @@ public class Katharsis_proxy {
             logger.warn(RED + "The Discord bot is on but discord.token is empty; it will not start.");
             return;
         }
-        discordBot.start(discord.token().strip());
+        discordBot.start(discord.token().strip(), discord.relayToMinecraft());
     }
 
     /**

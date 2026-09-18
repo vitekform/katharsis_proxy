@@ -19,9 +19,19 @@ import org.bukkit.plugin.java.JavaPlugin;
  * relays the choice, so the two can never disagree about a player's language.</p>
  *
  * <p>It also reports every chat message to the proxy, which keeps the chat log
- * and posts it to Discord.</p>
+ * and posts it to Discord. Messages from Discord are delivered in game by the
+ * proxy itself; the companion only tells it this server's id.</p>
+ *
+ * <p>When the proxy says a player has joined the network for the first time,
+ * the selector opens for them on its own.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
+
+    /**
+     * Ticks between the proxy asking for a new player's selector and opening
+     * it, so it is not closed by the client's loading screen.
+     */
+    private static final long FIRST_JOIN_MENU_DELAY_TICKS = 20L;
 
     /** Seconds to wait for the proxy before telling the player it is unreachable. */
     private static final long DEFAULT_TIMEOUT_SECONDS = 5L;
@@ -41,14 +51,22 @@ public final class KatharsisPaper extends JavaPlugin {
         getServer().getPluginManager().registerEvents(
                 new LanguageMenuListener(this, client, messages), this);
 
+        String serverId = getConfig().getString("server-id", "").strip();
         getServer().getMessenger().registerOutgoingPluginChannel(this, ChatChannel.CHANNEL);
-        getServer().getPluginManager().registerEvents(
-                new ChatListener(this, getConfig().getString("server-id", "").strip()), this);
+        getServer().getPluginManager().registerEvents(new ChatListener(this, serverId), this);
 
-        AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion());
+        AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion(), serverId);
         getServer().getPluginManager().registerEvents(announcer, this);
 
-        registerLanguageCommand(messages);
+        LanguageCommand languageCommand =
+                new LanguageCommand(this, client, new LanguageMenuView(), messages);
+        registerLanguageCommand(languageCommand);
+        // The proxy asks for this when a player joins the network for the first time.
+        client.onOpenMenuRequest(player -> getServer().getScheduler().runTaskLater(this, () -> {
+            if (player.isOnline()) {
+                languageCommand.open(player);
+            }
+        }, FIRST_JOIN_MENU_DELAY_TICKS));
 
         // Tell the proxy who we are straight away. On a cold start there is no
         // player yet to carry the message, so this reports that and the first
@@ -65,13 +83,13 @@ public final class KatharsisPaper extends JavaPlugin {
         getServer().getMessenger().unregisterIncomingPluginChannel(this);
     }
 
-    private void registerLanguageCommand(CompanionMessages messages) {
+    private void registerLanguageCommand(LanguageCommand languageCommand) {
         PluginCommand command = getCommand("language");
         if (command == null) {
             // Only reachable if plugin.yml and this class disagree.
             getLogger().severe("/language is missing from plugin.yml; the selector is unavailable.");
             return;
         }
-        command.setExecutor(new LanguageCommand(this, client, new LanguageMenuView(), messages));
+        command.setExecutor(languageCommand);
     }
 }

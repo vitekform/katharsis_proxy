@@ -42,6 +42,15 @@ public final class LanguageCommand implements CommandExecutor {
             return true;
         }
 
+        open(player);
+        return true;
+    }
+
+    /**
+     * Fetches the selector from the proxy and opens it for {@code player}, or
+     * tells them the proxy is unreachable. Callable from any thread.
+     */
+    public void open(Player player) {
         client.requestMenu(player).whenComplete((response, failure) -> {
             if (failure != null || response == null || !response.success()) {
                 reportFailure(player, response, failure);
@@ -54,7 +63,6 @@ public final class LanguageCommand implements CommandExecutor {
                 }
             });
         });
-        return true;
     }
 
     private void reportFailure(Player player, Object response, Throwable failure) {

@@ -31,14 +31,21 @@ public final class AnnounceListener implements Listener {
     private final Plugin plugin;
     private final ProxyClient client;
     private final String version;
+    private final String serverId;
 
     private volatile long lastAnnouncedNanos;
     private volatile boolean announcedOnce;
 
-    public AnnounceListener(Plugin plugin, ProxyClient client, String version) {
+    /**
+     * @param serverId this server's configured {@code server-id}, sent along so
+     *                 the proxy delivers the matching Discord channel here;
+     *                 blank means the velocity.toml name
+     */
+    public AnnounceListener(Plugin plugin, ProxyClient client, String version, String serverId) {
         this.plugin = plugin;
         this.client = client;
         this.version = version;
+        this.serverId = serverId;
     }
 
     /**
@@ -70,7 +77,7 @@ public final class AnnounceListener implements Listener {
         if (!shouldAnnounce()) {
             return;
         }
-        client.announce(carrier, version).whenComplete((response, failure) -> {
+        client.announce(carrier, version, serverId).whenComplete((response, failure) -> {
             if (failure != null || response == null || !response.success()) {
                 // Most likely an older proxy, or none at all. Try again on the
                 // next join rather than giving up for good.

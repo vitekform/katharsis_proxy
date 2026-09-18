@@ -1,5 +1,6 @@
 package me.ganamaga.katharsis_proxy.discord;
 
+import discord4j.gateway.intent.Intent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiscordBotTest {
 
@@ -37,13 +39,21 @@ class DiscordBotTest {
         try {
             // Discord4J reads the bot's id out of the token before any request,
             // so this fails without reaching the network.
-            bot.start("not-a-token");
+            bot.start("not-a-token", true);
             assertRejected(bot.submit(client -> client.logout()));
             assertFalse(bot.isAccepting());
-            assertThrows(IllegalStateException.class, () -> bot.start("not-a-token"));
+            assertThrows(IllegalStateException.class, () -> bot.start("not-a-token", true));
         } finally {
             bot.stop();
         }
         assertFalse(bot.isConnected());
+    }
+
+    @Test
+    @DisplayName("Message Content is requested only when messages are read")
+    void messageContentIntentOnlyWhenReading() {
+        assertTrue(DiscordBot.intents(true).contains(Intent.MESSAGE_CONTENT));
+        assertFalse(DiscordBot.intents(false).contains(Intent.MESSAGE_CONTENT));
+        assertTrue(DiscordBot.intents(true).contains(Intent.GUILD_MESSAGES));
     }
 }

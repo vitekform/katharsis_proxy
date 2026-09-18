@@ -51,3 +51,7 @@ discord-link-code: "Tvůj kód pro propojení je **<code>**. Připoj se na Minec
 # <player>
 discord-link-already-linked: "Tvůj Discord účet už je propojen s hráčem **<player>**."
 discord-link-unavailable: "Propojení účtů teď není dostupné. Zkus to prosím později."
+
+# Ve hře, zpráva napsaná v chatovacím kanálu na Discordu.
+# <player> je propojené Minecraft jméno autora, <message> to, co napsal.
+discord-chat-message: "<dark_gray>[<blue>Discord</blue>]</dark_gray> <gray><player>:</gray> <white><message></white>"

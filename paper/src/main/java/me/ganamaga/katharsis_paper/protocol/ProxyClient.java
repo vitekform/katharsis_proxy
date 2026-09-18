@@ -11,6 +11,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Talks to the proxy over the plugin message channel.
@@ -30,6 +32,10 @@ public final class ProxyClient implements PluginMessageListener {
     private final long timeoutSeconds;
     private final AtomicLong nextRequestId = new AtomicLong();
     private final Map<String, Pending> pending = new ConcurrentHashMap<>();
+
+    /** Called when the proxy asks for the selector to be opened. */
+    private volatile Consumer<Player> openMenuHandler = player -> {
+    };
 
     public ProxyClient(Plugin plugin, long timeoutSeconds) {
         this.plugin = plugin;
@@ -55,12 +61,22 @@ public final class ProxyClient implements PluginMessageListener {
      *
      * <p>A plugin message needs a player to travel on, so this can only be sent
      * once somebody is connected — hence the call from the join listener.</p>
+     *
+     * @param serverId this server's configured id, which tells the proxy which
+     *                 Discord chat channel's messages belong here
      */
-    public CompletableFuture<ProxyResponse> announce(Player carrier, String version) {
-        return send(carrier, LanguageChannel.OP_ANNOUNCE, new UUID(0L, 0L), version);
+    public CompletableFuture<ProxyResponse> announce(Player carrier, String version, String serverId) {
+        return send(carrier, LanguageChannel.OP_ANNOUNCE,
+                requestId -> ProtocolCodec.encodeAnnounce(requestId, version, serverId));
     }
 
     private CompletableFuture<ProxyResponse> send(Player carrier, String operation, UUID subject, String payload) {
+        return send(carrier, operation,
+                requestId -> ProtocolCodec.encodeRequest(operation, requestId, subject.toString(), payload));
+    }
+
+    private CompletableFuture<ProxyResponse> send(Player carrier, String operation,
+                                                  Function<String, byte[]> encode) {
         String requestId = plugin.getName() + "-" + nextRequestId.incrementAndGet();
         CompletableFuture<ProxyResponse> future = new CompletableFuture<>();
 
@@ -73,8 +89,7 @@ public final class ProxyClient implements PluginMessageListener {
         }, timeoutSeconds * TICKS_PER_SECOND);
 
         pending.put(requestId, new Pending(future, timeout));
-        carrier.sendPluginMessage(plugin, LanguageChannel.CHANNEL,
-                ProtocolCodec.encodeRequest(operation, requestId, subject.toString(), payload));
+        carrier.sendPluginMessage(plugin, LanguageChannel.CHANNEL, encode.apply(requestId));
         return future;
     }
 
@@ -90,6 +105,15 @@ public final class ProxyClient implements PluginMessageListener {
             return;
         }
 
+        if (LanguageChannel.OP_OPEN_MENU.equals(response.operation())) {
+            // Unasked, so there is no request to match. It travels on the
+            // connection of the player it is about.
+            if (player.getUniqueId().toString().equals(response.uuid())) {
+                openMenuHandler.accept(player);
+            }
+            return;
+        }
+
         Pending waiting = pending.remove(response.requestId());
         if (waiting == null) {
             // A late reply whose request already timed out, or one meant for
@@ -98,6 +122,15 @@ public final class ProxyClient implements PluginMessageListener {
         }
         waiting.timeout().cancel();
         waiting.future().complete(response);
+    }
+
+    /**
+     * Sets what to do when the proxy asks for {@code player}'s selector to be
+     * opened, which it does on their first join to the network. Runs on the
+     * server thread.
+     */
+    public void onOpenMenuRequest(Consumer<Player> handler) {
+        this.openMenuHandler = handler;
     }
 
     /** Drops every outstanding request, e.g. on disable. */

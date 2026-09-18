@@ -63,7 +63,9 @@ it to Discord.
 Set `server-id` in the companion's `config.yml` to choose which Discord channel
 this server's chat goes to: it is the key looked up in the proxy's
 `discord.chat-channels`. Left empty, the proxy uses the server's name from
-`velocity.toml`. See [chat-messaging.md](chat-messaging.md) for the format and
+`velocity.toml`. Messages written in that channel are shown to the players on
+this server; the proxy sends them itself, and the companion only tells it the
+server id when it announces. See [chat-messaging.md](chat-messaging.md) for the format and
 exactly which messages are reported.
 
 ## The selector
@@ -78,6 +80,12 @@ Clicking a language sends `set_language`. The proxy stores it and sends the
 confirmation itself, in the newly chosen language, so the companion never
 composes a translated sentence. Clicks are cancelled unconditionally and drags
 are blocked, so nothing can be taken out of the menu or dropped into it.
+
+A player joining the network for the first time gets the default language and
+has the selector opened for them on the first server they reach, so they can pick
+a language straight away. It is only shown once: switching servers or rejoining
+does not open it again. If that first server does not run the companion, it is
+not shown at all.
 
 If the proxy does not answer within `request-timeout-seconds`, the player is told
 the proxy is unreachable rather than being left with a frozen command.

@@ -81,6 +81,11 @@ public final class AccountLinkService {
         return link;
     }
 
+    /** The link of a Discord user, read from the database. */
+    public Optional<AccountLink> linkOfDiscordUser(long discordUserId) throws SQLException {
+        return repository.findByDiscordUser(discordUserId);
+    }
+
     /**
      * Makes a new code for a Discord user, replacing any earlier one, unless
      * their account is already linked.

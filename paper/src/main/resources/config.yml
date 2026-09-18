@@ -7,7 +7,9 @@
 
 # Identifies this server in chat reports. The proxy posts this server's chat to
 # the Discord channel mapped to this id under discord.chat-channels in its own
-# config.yml. Leave it empty to use this server's name from velocity.toml.
+# config.yml, and messages written in that channel are shown to the players on
+# this server. Servers sharing an id share a channel. Leave it empty to use this
+# server's name from velocity.toml.
 server-id: ''
 
 # How long to wait for the proxy to answer before telling the player it is

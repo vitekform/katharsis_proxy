@@ -29,7 +29,7 @@ public final class LanguageChannel {
     /**
      * Tells the proxy this backend runs the companion plugin and owns the
      * language selector. Request carries the companion's version in the
-     * optional fourth field; the proxy drops its own /language on the first one.
+     * fourth field, and may carry its server id in an optional fifth.
      */
     public static final String OP_ANNOUNCE = "announce";
 
@@ -40,6 +40,13 @@ public final class LanguageChannel {
      * {@code docs/plugin-messaging.md}.
      */
     public static final String OP_MENU = "get_language_menu";
+
+    /**
+     * Sent by the proxy, unasked, to have the companion open the selector for
+     * a player new to the network. Laid out as a successful response with an
+     * empty request id.
+     */
+    public static final String OP_OPEN_MENU = "open_language_menu";
 
     /** Sent as the error field of a successful response. */
     public static final String ERROR_NONE = "";

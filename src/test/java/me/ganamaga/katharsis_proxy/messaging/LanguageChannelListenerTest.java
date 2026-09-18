@@ -414,6 +414,26 @@ class LanguageChannelListenerTest {
     }
 
     @Test
+    @DisplayName("announce may carry the server id the backend reports as, in a fifth field")
+    void announceRecordsTheServerId() throws Exception {
+        ByteArrayDataOutput out = ByteStreams.newDataOutput();
+        out.write(announce("r25", "1.0"));
+        out.writeUTF("survival");
+
+        assertTrue(call(backend, out.toByteArray()).success());
+        assertEquals("survival", companions.serverIdOf("lifesteal"));
+
+        assertTrue(call(backend, announce("r26", "1.0")).success(), "the fifth field is optional");
+        assertEquals("survival", companions.serverIdOf("lifesteal"), "an older announce changes nothing");
+
+        ByteArrayDataOutput blank = ByteStreams.newDataOutput();
+        blank.write(announce("r27", "1.0"));
+        blank.writeUTF("");
+        call(backend, blank.toByteArray());
+        assertEquals("lifesteal", companions.serverIdOf("lifesteal"), "blank means the velocity.toml name");
+    }
+
+    @Test
     @DisplayName("announce tells the backend which server the proxy knows it as")
     void announceReportsTheServerName() throws Exception {
         Reply reply = call(backend, announce("r23", "1.0"));
@@ -514,5 +534,17 @@ class LanguageChannelListenerTest {
         assertEquals(LanguageChannel.OP_ANNOUNCE, reply.operation());
         assertEquals("r1", reply.requestId());
         assertEquals(Set.of("lifesteal"), companions.servers());
+    }
+
+    /** As above, for {@code ProtocolCodecTest.GOLDEN_ANNOUNCE_WITH_SERVER_ID}. */
+    @Test
+    @DisplayName("the companion's exact announce bytes with a server id are understood")
+    void understandsTheCompanionsGoldenBytesWithServerId() throws Exception {
+        byte[] fromCompanion = HexFormat.of().parseHex(
+                "0008616e6e6f756e636500027231002430303030303030302d303030302d303030302d"
+                        + "303030302d3030303030303030303030300003302e3100056c6f626279");
+
+        assertTrue(call(backend, fromCompanion).success());
+        assertEquals("lobby", companions.serverIdOf("lifesteal"));
     }
 }

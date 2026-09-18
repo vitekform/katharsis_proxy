@@ -51,6 +51,7 @@ class ChatChannelListenerTest {
     private DatabaseManager database;
     private ChatMessageRepository chatMessages;
     private ChatChannelListener listener;
+    private CompanionRegistry companions;
 
     /** Server id and message of every relayed report, in order. */
     private final List<Map.Entry<String, ChatMessage>> relayed = new CopyOnWriteArrayList<>();
@@ -66,8 +67,10 @@ class ChatChannelListenerTest {
         chatMessages = new ChatMessageRepository(database);
         chatMessages.createTable();
 
+        companions = new CompanionRegistry(logger);
         listener = new ChatChannelListener(logger, database, chatMessages,
-                (serverId, message) -> relayed.add(Map.entry(serverId, message)), Clock.fixed(NOW, ZoneOffset.UTC));
+                (serverId, message) -> relayed.add(Map.entry(serverId, message)), companions,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     @AfterEach
@@ -197,6 +200,8 @@ class ChatChannelListenerTest {
         ChatMessage logged = new ChatMessage(PLAYER, "Notch", "lifesteal", "hello", NOW);
         assertEquals(List.of(Map.entry("lifesteal-eu", logged)), relayed);
         assertEquals(List.of(logged), chatMessages.findByPlayer(PLAYER));
+        assertEquals("lifesteal-eu", companions.serverIdOf("lifesteal"),
+                "remembered, so Discord messages for that id reach this backend");
     }
 
     @Test

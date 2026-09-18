@@ -90,7 +90,14 @@ public enum MessageKey {
     DISCORD_LINK_ALREADY_LINKED("discord-link-already-linked"),
 
     /** On Discord, linking cannot be done right now. Placeholders: none. */
-    DISCORD_LINK_UNAVAILABLE("discord-link-unavailable");
+    DISCORD_LINK_UNAVAILABLE("discord-link-unavailable"),
+
+    /**
+     * In game, a message written in a Discord chat channel. Placeholders:
+     * {@code <player>}, the author's linked Minecraft name, and
+     * {@code <message>}.
+     */
+    DISCORD_CHAT_MESSAGE("discord-chat-message");
 
     private final String key;
 

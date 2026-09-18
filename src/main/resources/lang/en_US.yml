@@ -53,3 +53,7 @@ discord-link-code: "Your link code is **<code>**. Join the Minecraft server and 
 # <player>
 discord-link-already-linked: "Your Discord account is already linked to **<player>**."
 discord-link-unavailable: "Account linking is unavailable right now. Please try again later."
+
+# In game, a message written in a Discord chat channel.
+# <player> is the author's linked Minecraft name, <message> what they wrote.
+discord-chat-message: "<dark_gray>[<blue>Discord</blue>]</dark_gray> <gray><player>:</gray> <white><message></white>"

@@ -2,6 +2,8 @@ package me.ganamaga.katharsis_proxy.discord;
 
 import discord4j.core.DiscordClient;
 import discord4j.core.GatewayDiscordClient;
+import discord4j.gateway.intent.Intent;
+import discord4j.gateway.intent.IntentSet;
 import org.slf4j.Logger;
 
 import java.time.Duration;
@@ -44,13 +46,18 @@ public final class DiscordBot {
      * Starts the bot thread, which logs in with {@code token} before running
      * anything. Tasks submitted meanwhile wait for the login. A failed login
      * is logged, and every task is rejected from then on.
+     *
+     * @param readMessages also request the privileged Message Content intent,
+     *                     without which messages arrive with no text. Discord
+     *                     refuses the login if it is not switched on for the
+     *                     bot in the developer portal.
      */
-    public void start(String token) {
+    public void start(String token, boolean readMessages) {
         if (worker != null) {
             throw new IllegalStateException("The Discord bot has already been started");
         }
         TaskWorker<GatewayDiscordClient> created =
-                new TaskWorker<>(logger, THREAD_NAME, QUEUE_CAPACITY, new DiscordConnector(logger, token));
+                new TaskWorker<>(logger, THREAD_NAME, QUEUE_CAPACITY, new DiscordConnector(logger, token, intents(readMessages)));
         worker = created;
         created.start();
     }
@@ -97,15 +104,21 @@ public final class DiscordBot {
         }
     }
 
+    static IntentSet intents(boolean readMessages) {
+        return readMessages ? IntentSet.nonPrivileged().or(IntentSet.of(Intent.MESSAGE_CONTENT)) : IntentSet.nonPrivileged();
+    }
+
     /** A class rather than a record, whose generated toString would print the token. */
     private static final class DiscordConnector implements TaskWorker.Connector<GatewayDiscordClient> {
 
         private final Logger logger;
         private final String token;
+        private final IntentSet intents;
 
-        DiscordConnector(Logger logger, String token) {
+        DiscordConnector(Logger logger, String token, IntentSet intents) {
             this.logger = logger;
             this.token = token;
+            this.intents = intents;
         }
 
         @Override
@@ -113,7 +126,10 @@ public final class DiscordBot {
             logger.info("Logging in to Discord...");
             // No timeout: Discord4J keeps retrying an unreachable gateway on
             // its own, and stop() interrupts the wait.
-            GatewayDiscordClient client = DiscordClient.create(token).login().block();
+            GatewayDiscordClient client = DiscordClient.create(token).gateway()
+                    .setEnabledIntents(intents)
+                    .login()
+                    .block();
             if (client == null) {
                 throw new IllegalStateException("The Discord login completed without a client");
             }

@@ -109,6 +109,11 @@ The `uuid` field is ignored — no player is involved — but it must still be
 present; send the nil UUID. The fourth field carries the sender's version and
 appears in the proxy log.
 
+An optional fifth UTF field carries the backend's server id, the key the proxy
+looks up in `discord.chat-channels`. The proxy then delivers messages from that
+Discord channel to this backend. Blank means the backend's `velocity.toml` name;
+leaving the field out changes nothing, so older companions keep working.
+
 A successful reply appends one field after `error`:
 
 | # | Field        | Type | Notes                                          |
@@ -121,6 +126,19 @@ learns which server it is running as.
 Announcing is idempotent: repeat it as often as you like. A backend can only
 announce once a player is connected to it, since a plugin message needs a player
 to travel on.
+
+### `open_language_menu` (proxy to backend)
+
+The one message the proxy sends without being asked. When a player joins the
+network for the first time, and is given the default language, the proxy sends
+it to the first server they connect to, on that player's connection. It is laid
+out as a successful response with an empty `requestId`, the player's `uuid`,
+empty `language` and `error`, and no extra fields, so it decodes with the same
+reader as every reply.
+
+The companion answers by opening the selector for that player, a second after
+it arrives so the client's loading screen does not close it. A backend without
+the companion ignores it, and the player keeps the default language.
 
 ### `clear_language`
 

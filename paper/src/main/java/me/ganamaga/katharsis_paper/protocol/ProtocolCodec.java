@@ -7,6 +7,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.LinkedHashMap;
+import java.util.UUID;
 
 /**
  * Encodes requests to and decodes replies from the proxy.
@@ -35,6 +36,26 @@ public final class ProtocolCodec {
             if (carriesPayload(operation)) {
                 out.writeUTF(payload);
             }
+        } catch (IOException e) {
+            // A ByteArrayOutputStream cannot fail.
+            throw new UncheckedIOException(e);
+        }
+        return bytes.toByteArray();
+    }
+
+    /**
+     * Builds an {@code announce} request, which carries this server's
+     * configured id in a fifth field so the proxy knows which Discord chat
+     * channel's messages to deliver here.
+     *
+     * @param serverId the configured {@code server-id}; blank means the
+     *                 server's velocity.toml name
+     */
+    public static byte[] encodeAnnounce(String requestId, String version, String serverId) {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.write(encodeRequest(LanguageChannel.OP_ANNOUNCE, requestId, new UUID(0L, 0L).toString(), version));
+            out.writeUTF(serverId == null ? "" : serverId);
         } catch (IOException e) {
             // A ByteArrayOutputStream cannot fail.
             throw new UncheckedIOException(e);

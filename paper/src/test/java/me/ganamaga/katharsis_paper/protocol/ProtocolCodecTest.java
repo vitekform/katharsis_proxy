@@ -27,6 +27,12 @@ class ProtocolCodecTest {
      */
     static final String GOLDEN_ANNOUNCE = "0008616e6e6f756e636500027231002430303030303030302d303030302d303030302d303030302d3030303030303030303030300003302e31";
 
+    /**
+     * {@code announce} as above, from a server with {@code server-id: lobby},
+     * which travels in a fifth field. The proxy pins these bytes too.
+     */
+    static final String GOLDEN_ANNOUNCE_WITH_SERVER_ID = GOLDEN_ANNOUNCE + "00056c6f626279";
+
     // --- requests ----------------------------------------------------------
 
     @Test
@@ -81,7 +87,38 @@ class ProtocolCodecTest {
         assertEquals(GOLDEN_ANNOUNCE, HexFormat.of().formatHex(encoded));
     }
 
+    @Test
+    @DisplayName("an announcement carries the server id in a fifth field, empty when none is set")
+    void announceCarriesServerId() throws IOException {
+        assertEquals(GOLDEN_ANNOUNCE_WITH_SERVER_ID,
+                HexFormat.of().formatHex(ProtocolCodec.encodeAnnounce("r1", "0.1", "lobby")));
+
+        DataInputStream in = new DataInputStream(new ByteArrayInputStream(ProtocolCodec.encodeAnnounce("r1", "0.1", "")));
+        for (int field = 0; field < 4; field++) {
+            in.readUTF();
+        }
+        assertEquals("", in.readUTF());
+        assertEquals(0, in.available());
+    }
+
     // --- responses ---------------------------------------------------------
+
+    /**
+     * The proxy's unasked {@code open_language_menu} push, byte for byte as its
+     * {@code FirstJoinMenuListenerTest.GOLDEN_OPEN_MENU} pins it.
+     */
+    @Test
+    @DisplayName("the proxy's first-join push decodes with the ordinary response reader")
+    void decodesOpenMenuPush() {
+        ProxyResponse decoded = ProtocolCodec.decodeResponse(HexFormat.of().parseHex(
+                "00126f70656e5f6c616e67756167655f6d656e750000002431653166326233632d346435652d"
+                        + "366637302d383139322d6133623463356436653766380100000000"));
+
+        assertEquals(LanguageChannel.OP_OPEN_MENU, decoded.operation());
+        assertEquals("", decoded.requestId(), "nothing asked for it");
+        assertEquals(PLAYER, decoded.uuid());
+        assertTrue(decoded.success());
+    }
 
     @Test
     @DisplayName("a plain response decodes into its six fields")
