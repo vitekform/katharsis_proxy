@@ -71,3 +71,8 @@ discord-chat-prompt-yes: "<green>Ano, zobrazovat"
 discord-chat-prompt-no: "<red>Ne, nechat skrytý"
 discord-chat-shown: "<green>Zprávy z Discordu se ti teď zobrazují v chatu. Změnit to můžeš kdykoli příkazem <gold>/settings</gold>.</green>"
 discord-chat-hidden: "<gray>Zprávy z Discordu jsou teď skryté. Změnit to můžeš kdykoli příkazem <gold>/settings</gold>.</gray>"
+
+# Moderace chatu. Uvidí ji jen autor zadržené zprávy; ostatní ji prostě
+# nikdy neuvidí.
+chat-blocked: "<red>Tvoje zpráva nebyla odeslána: porušila pravidla chatu.</red>"
+chat-unchecked: "<gray>Tvoji zprávu se teď nepodařilo zkontrolovat, a tak nebyla odeslána. Zkus to prosím znovu.</gray>"

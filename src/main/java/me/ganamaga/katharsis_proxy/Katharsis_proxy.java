@@ -23,6 +23,7 @@ import me.ganamaga.katharsis_proxy.discord.DiscordAccountLinking;
 import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
 import me.ganamaga.katharsis_proxy.discord.DiscordInboundChat;
+import me.ganamaga.katharsis_proxy.discord.DiscordModerationAlert;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.link.AccountLinkService;
@@ -34,6 +35,11 @@ import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
+import me.ganamaga.katharsis_proxy.moderation.ChatModerator;
+import me.ganamaga.katharsis_proxy.moderation.ModerationAlerts;
+import me.ganamaga.katharsis_proxy.moderation.ModerationFactory;
+import me.ganamaga.katharsis_proxy.moderation.ModerationNotice;
+import me.ganamaga.katharsis_proxy.moderation.PlayerModerationNotice;
 import me.ganamaga.katharsis_proxy.motd.MotdLibrary;
 import me.ganamaga.katharsis_proxy.motd.MotdPingListener;
 import me.ganamaga.katharsis_proxy.motd.generator.BannerGenerator;
@@ -98,6 +104,9 @@ public class Katharsis_proxy {
     private LinkCommand linkCommand;
     private CompanionRegistry companions;
 
+    /** Null while chat moderation is off. */
+    private ChatModerator chatModerator;
+
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
         logger.info(YELLOW + "Loading Katharsis Proxy...");
@@ -107,6 +116,8 @@ public class Katharsis_proxy {
         // Before the commands and plugin messaging, which hand work to the bot.
         startDiscordBot();
         setUpAccountLinking();
+        // Before the chat channel, which hands every reported message to it.
+        setUpModeration();
         registerCommands();
         registerPluginMessaging();
         registerMotd();
@@ -237,6 +248,35 @@ public class Katharsis_proxy {
     }
 
     /**
+     * Compiles the chat filters. With moderation off, or with nothing
+     * configured to check with, this leaves {@link #chatModerator} null and
+     * reported chat is relayed and logged exactly as it was before.
+     */
+    private void setUpModeration() {
+        chatModerator = ModerationFactory.create(logger, configManager.config().moderation());
+        if (chatModerator == null) {
+            return;
+        }
+        if (configManager.config().moderation().staffChannelId() <= 0L) {
+            logger.info("No moderation.staff-channel-id is set; held-back messages are only logged and stored.");
+        }
+    }
+
+    /** Where held-back messages are reported, which is Discord or nowhere. */
+    private ModerationAlerts moderationAlerts() {
+        return chatModerator == null
+                ? ModerationAlerts.NONE
+                : new DiscordModerationAlert(logger, discordBot, () -> configManager.config().moderation());
+    }
+
+    /** Whether the author of a held-back message is told, and how. */
+    private ModerationNotice moderationNotice() {
+        return chatModerator != null && configManager.config().moderation().warnPlayer()
+                ? new PlayerModerationNotice(proxy, messages)
+                : ModerationNotice.NONE;
+    }
+
+    /**
      * Opens the language and chat channels to backend servers. Registered even
      * when the database is down, so language callers get an explicit error
      * instead of silence and chat reports are still kept away from clients.
@@ -252,8 +292,8 @@ public class Katharsis_proxy {
 
         proxy.getChannelRegistrar().register(ChatChannel.IDENTIFIER);
         DiscordChatRelay discordRelay = new DiscordChatRelay(logger, discordBot, () -> configManager.config().discord());
-        proxy.getEventManager().register(this,
-                new ChatChannelListener(logger, database, chatMessages, discordRelay, companions));
+        proxy.getEventManager().register(this, new ChatChannelListener(logger, database, chatMessages, discordRelay,
+                companions, chatModerator, moderationAlerts(), moderationNotice()));
         logger.info("Logging chat reported on the '{}' plugin message channel.",
                 ChatChannel.IDENTIFIER.getId());
         int relayed = configManager.config().discord().chatChannels().size();

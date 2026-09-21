@@ -136,7 +136,22 @@ public enum MessageKey {
     DISCORD_CHAT_SHOWN("discord-chat-shown"),
 
     /** In game, Discord chat is now hidden. Placeholders: none. */
-    DISCORD_CHAT_HIDDEN("discord-chat-hidden");
+    DISCORD_CHAT_HIDDEN("discord-chat-hidden"),
+
+    /**
+     * In game, the moderation filters held the player's message back, so it
+     * reached neither the chat log nor Discord. Placeholders: none, on purpose:
+     * repeating what was written, or naming the rule that caught it, only helps
+     * the author find a spelling that gets through.
+     */
+    CHAT_BLOCKED("chat-blocked"),
+
+    /**
+     * In game, the message could not be checked at all, so it was held back
+     * rather than passed on unchecked. Says to try again, since nothing is
+     * wrong with the message itself. Placeholders: none.
+     */
+    CHAT_UNCHECKED("chat-unchecked");
 
     private final String key;
 

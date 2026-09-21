@@ -8,6 +8,10 @@ sends these reports; any other backend plugin may too.
 The channel is **one-way**: the proxy never replies, so a sender does not wait
 for anything.
 
+With chat moderation turned on, a reported message is filtered before it is
+relayed or logged, and one that is held back reaches neither. See
+[chat-moderation.md](chat-moderation.md).
+
 ## Who may send
 
 **Only backend servers.** A message that arrives from a *client* on this channel

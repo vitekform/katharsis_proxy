@@ -11,6 +11,7 @@ public class KatharsisConfig {
     private DatabaseConfig database = new DatabaseConfig();
     private MotdConfig motd = new MotdConfig();
     private DiscordConfig discord = new DiscordConfig();
+    private ModerationConfig moderation = new ModerationConfig();
     private String defaultLanguage = "en_US";
 
     public DatabaseConfig database() {
@@ -23,6 +24,10 @@ public class KatharsisConfig {
 
     public DiscordConfig discord() {
         return discord;
+    }
+
+    public ModerationConfig moderation() {
+        return moderation;
     }
 
     public String defaultLanguage() {

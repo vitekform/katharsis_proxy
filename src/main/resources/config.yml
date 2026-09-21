@@ -168,6 +168,114 @@ discord:
   # and the whole bot, /link included, stays offline.
   relay-to-minecraft: true
 
+# Chat moderation. Every message a backend reports passes these filters before
+# it is relayed to Discord and written to the chat log; nothing that is held
+# back reaches either.
+#
+# The proxy is told about a message only after the backend has already shown it
+# in game, so holding one back here does not un-say it to the players who were
+# standing there. What it does is keep it out of Discord and out of the log,
+# record it as flagged, tell the staff channel, and tell its author.
+#
+# Messages are checked in order of what they cost: the words and patterns below
+# run in memory, and only what they let through is sent to OpenAI.
+moderation:
+  # While this is false chat is relayed and logged exactly as before.
+  enabled: false
+
+  # Literal terms. Before matching, a message is folded down to bare letters:
+  # accents and look-alikes are mapped onto the letter they imitate, invisible
+  # characters are dropped, and spacing and punctuation are removed. A term is
+  # also matched stretched out, so one entry catches "racist", "r a c i s t",
+  # "r.a.c.i.s.t", "r@c1st", "ｒａｃｉｓｔ" and "raaaciiist" alike. Case does not
+  # matter. Leave this empty and only the patterns and the model run.
+  #
+  # words:
+  #   - racist
+  words: []
+
+  # Regular expressions, used exactly as written, matched both against the
+  # folded form and against the message as it was typed. Use these for what a
+  # word list cannot say, such as an address or an invite link. An expression
+  # that does not compile is logged and skipped.
+  #
+  # patterns:
+  #   - '(?:https?://)?discord\.gg/\w+'
+  patterns: []
+
+  # Innocent words that contain one of the terms above. Because the folded form
+  # has no spaces left, a short term is a substring of longer words: "cunt" is
+  # inside "Scunthorpe" and "ass" inside "assassin". A match that falls inside
+  # one of these is not treated as a match. Only applies to words, not patterns.
+  #
+  # allow:
+  #   - scunthorpe
+  #   - assassin
+  allow: []
+
+  # Tell the author their message was not sent. They are never told which rule
+  # caught it, or shown what they wrote back: that only helps them find a
+  # spelling that gets through.
+  warn-player: true
+
+  # Discord channel held-back messages are reported in, with the player, the
+  # server, what caught it and the message itself. Turn on Developer Mode in
+  # Discord's settings, then right-click a channel and Copy Channel ID. 0
+  # reports none, and messages are only logged and stored.
+  #
+  # Messages held back because nothing could check them are not reported here:
+  # they say nothing about the player, and an outage would post one for every
+  # message on the network.
+  staff-channel-id: 0
+
+  # OpenAI's moderation model, asked about what the rules above let through.
+  # Text is sent to api.openai.com, a third-party service, and is handled under
+  # its terms. The message is sent as it was written, since the model reads
+  # obfuscation better than a word list does.
+  openai:
+    enabled: false
+    # Key from platform.openai.com. Anyone holding it can spend against your
+    # account, so keep this file private.
+    api-key: ''
+    model: omni-moderation-latest
+    url: https://api.openai.com/v1/moderations
+
+    # Longest to wait for an answer, in milliseconds. Chat is not relayed until
+    # it comes, so keep this short.
+    timeout-ms: 3000
+
+    # The quota on your key. The proxy counts against these itself and stops
+    # sending before OpenAI starts refusing, so the day's requests are spent on
+    # messages rather than on errors. 0 does not count that limit at all.
+    requests-per-minute: 500
+    tokens-per-minute: 10000
+    requests-per-day: 10000
+
+    # Categories acted on, as the model names them: harassment,
+    # harassment/threatening, hate, hate/threatening, self-harm,
+    # self-harm/intent, self-harm/instructions, sexual, sexual/minors,
+    # violence, violence/graphic, illicit, illicit/violent.
+    # Empty acts on every category the model flags.
+    #
+    # categories:
+    #   - hate
+    #   - hate/threatening
+    #   - harassment/threatening
+    categories: []
+
+    # Hold a message back when a category scores at least this, even where the
+    # model did not flag it itself. Lower catches more and is wrong more often.
+    # 0 leaves the decision entirely to the model.
+    score-threshold: 0.0
+
+    # When the model cannot answer, two things are told apart on purpose.
+    # Running out of quota, here or at OpenAI, lets messages through unchecked:
+    # the limit is reached in ordinary use and chat must not stop working every
+    # evening. Anything else - a timeout, a refused key, an unreadable answer -
+    # holds them back, because that is a fault to fix rather than a state to
+    # live in. Held-back messages of that kind are stored as "unavailable" and
+    # are not a finding against the player.
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

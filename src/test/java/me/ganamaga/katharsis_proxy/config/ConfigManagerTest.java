@@ -176,6 +176,82 @@ class ConfigManagerTest {
     }
 
     @Test
+    @DisplayName("the shipped defaults leave moderation off, with the free tier's quota")
+    void moderationDefaults(@TempDir Path directory) throws ConfigurateException {
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        ModerationConfig moderation = manager.config().moderation();
+        assertFalse(moderation.enabled());
+        assertTrue(moderation.words().isEmpty());
+        assertTrue(moderation.patterns().isEmpty());
+        assertTrue(moderation.allow().isEmpty());
+        assertTrue(moderation.warnPlayer(), "the author is told by default");
+        assertEquals(0L, moderation.staffChannelId());
+
+        OpenAiConfig openai = moderation.openai();
+        assertFalse(openai.enabled());
+        assertEquals("", openai.apiKey());
+        assertEquals("omni-moderation-latest", openai.model());
+        assertEquals("https://api.openai.com/v1/moderations", openai.url());
+        assertEquals(500, openai.requestsPerMinute());
+        assertEquals(10_000, openai.tokensPerMinute());
+        assertEquals(10_000, openai.requestsPerDay());
+        assertEquals(0.0d, openai.scoreThreshold());
+    }
+
+    @Test
+    @DisplayName("every moderation key is read under the name the shipped file documents")
+    void readsModerationKeys(@TempDir Path directory) throws ConfigurateException, IOException {
+        Files.writeString(directory.resolve("config.yml"), """
+                moderation:
+                  enabled: true
+                  words:
+                    - racist
+                  patterns:
+                    - 'discord\\.gg/\\w+'
+                  allow:
+                    - scunthorpe
+                  warn-player: false
+                  staff-channel-id: 123456789012345678
+                  openai:
+                    enabled: true
+                    api-key: sk-test
+                    model: omni-moderation-2024-09-26
+                    url: https://example.invalid/v1/moderations
+                    timeout-ms: 1500
+                    requests-per-minute: 60
+                    tokens-per-minute: 5000
+                    requests-per-day: 900
+                    categories:
+                      - hate
+                    score-threshold: 0.7
+                """);
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        ModerationConfig moderation = manager.config().moderation();
+        assertTrue(moderation.enabled());
+        assertEquals(java.util.List.of("racist"), moderation.words());
+        assertEquals(java.util.List.of("discord\\.gg/\\w+"), moderation.patterns());
+        assertEquals(java.util.List.of("scunthorpe"), moderation.allow());
+        assertFalse(moderation.warnPlayer());
+        assertEquals(123456789012345678L, moderation.staffChannelId());
+
+        OpenAiConfig openai = moderation.openai();
+        assertTrue(openai.enabled());
+        assertEquals("sk-test", openai.apiKey());
+        assertEquals("omni-moderation-2024-09-26", openai.model());
+        assertEquals("https://example.invalid/v1/moderations", openai.url());
+        assertEquals(1_500L, openai.timeoutMs());
+        assertEquals(60, openai.requestsPerMinute());
+        assertEquals(5_000, openai.tokensPerMinute());
+        assertEquals(900, openai.requestsPerDay());
+        assertEquals(java.util.List.of("hate"), openai.categories());
+        assertEquals(0.7d, openai.scoreThreshold());
+    }
+
+    @Test
     @DisplayName("reloading picks up edits")
     void reloadPicksUpEdits(@TempDir Path directory) throws ConfigurateException, IOException {
         ConfigManager manager = managerIn(directory);

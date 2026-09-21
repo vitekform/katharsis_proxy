@@ -73,3 +73,8 @@ discord-chat-prompt-yes: "<green>Yes, show it"
 discord-chat-prompt-no: "<red>No, keep it hidden"
 discord-chat-shown: "<green>Messages from Discord are now shown in chat. Change this any time with <gold>/settings</gold>.</green>"
 discord-chat-hidden: "<gray>Messages from Discord are now hidden. Change this any time with <gold>/settings</gold>.</gray>"
+
+# Chat moderation. Shown to the author of a message the filters held back;
+# everyone else simply never sees it.
+chat-blocked: "<red>Your message was not sent: it broke the chat rules.</red>"
+chat-unchecked: "<gray>Your message could not be checked right now and was not sent. Please try again.</gray>"
