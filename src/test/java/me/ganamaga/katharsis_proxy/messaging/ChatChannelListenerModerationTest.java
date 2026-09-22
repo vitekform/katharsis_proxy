@@ -16,6 +16,7 @@ import me.ganamaga.katharsis_proxy.moderation.ModerationVerdict;
 import me.ganamaga.katharsis_proxy.moderation.OpenAiModeration;
 import me.ganamaga.katharsis_proxy.moderation.RateLimitBudget;
 import me.ganamaga.katharsis_proxy.moderation.RuleFilter;
+import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -99,7 +100,7 @@ class ChatChannelListenerModerationTest {
 
     /** A model layer pointed at a port nothing is listening on, so every call fails. */
     private static ChatModerator withUnreachableModel() {
-        OpenAiModeration openAi = new OpenAiModeration(LOGGER, HttpClient.newHttpClient(),
+        OpenAiModeration openAi = new OpenAiModeration(LOGGER, DebugLog.DISABLED, HttpClient.newHttpClient(),
                 URI.create("http://127.0.0.1:1/v1/moderations"), "sk-test", "omni-moderation-latest",
                 Duration.ofSeconds(2L), new RateLimitBudget(Clock.systemUTC(), 0, 0, 0), List.of(), 0.0d);
         return new ChatModerator(LOGGER, RuleFilter.empty(), openAi);

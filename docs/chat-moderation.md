@@ -118,6 +118,31 @@ author is told to try again rather than that they broke the rules.
 A failing call writes a full warning at most once a minute, so an outage does
 not bury the log under the very thing an admin needs to read.
 
+## The debug log
+
+The console says what happened to a message. It does not say what was sent, what
+came back or how long it took, which is what tells a refused key from a slow one
+from a message the model simply did not object to. That goes to
+`plugins/katharsis/debug.log`, one line per OpenAI call, while `debug-log` in
+`config.yml` is on — it is on by default:
+
+```
+2026-09-22 18:04:05.678 --- Katharsis started ---
+2026-09-22 18:07:12.004 openai call=1 request model=omni-moderation-latest url=https://api.openai.com/v1/moderations chars=13 tokens=13 timeout=3000ms text="you are r4c1st"
+2026-09-22 18:07:12.269 openai call=1 answer status=200 in=265ms outcome=FLAGGED categories=[harassment, hate] detail= body={"id":"modr-…","results":[{"flagged":true,…}]}
+2026-09-22 18:09:44.117 openai call=2 skipped model=omni-moderation-latest chars=31 tokens=19 remaining-today=0 reason=out-of-quota
+2026-09-22 18:11:02.882 openai call=3 answer status=401 in=88ms outcome=ERROR body={"error":{"message":"Incorrect API key provided"…
+```
+
+`call=N` pairs a request with its answer, since several messages are checked at
+once and the lines interleave. The `body` and the `text` are cut off at 1000
+characters, so one bad answer cannot fill the file.
+
+**The API key is never written. The chat text is**, which makes the file as
+private as the messages in it. It is rotated to `debug.log.1` past 5 MiB, and
+either file can be deleted at any time, including while the proxy is running.
+Set `debug-log: false` to write nothing at all.
+
 ## Where a held-back message ends up
 
 **The proxy log**, at `WARN`, with the message itself, since an admin is the one

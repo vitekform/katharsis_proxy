@@ -14,6 +14,13 @@ public class KatharsisConfig {
     private ModerationConfig moderation = new ModerationConfig();
     private String defaultLanguage = "en_US";
 
+    /**
+     * Whether {@code debug.log} is written in the data directory. On, because
+     * the calls recorded there are the ones an admin cannot reconstruct from
+     * the console afterwards.
+     */
+    private boolean debugLog = true;
+
     public DatabaseConfig database() {
         return database;
     }
@@ -32,5 +39,9 @@ public class KatharsisConfig {
 
     public String defaultLanguage() {
         return defaultLanguage;
+    }
+
+    public boolean debugLog() {
+        return debugLog;
     }
 }

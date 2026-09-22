@@ -279,3 +279,15 @@ moderation:
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US
+
+# Writes debug.log next to this file: one line per OpenAI moderation call, with
+# the model, the URL, the message, the answer, the categories and how long it
+# took. That is the detail needed to tell a refused key from a slow one from a
+# message the model simply did not object to, and none of it survives in the
+# proxy console.
+#
+# The API key is never written. The chat text is, so the file is as private as
+# the messages in it. It is rotated to debug.log.1 past 5 MiB, so it cannot
+# grow without bound; delete either file at any time, including while the proxy
+# is running.
+debug-log: true

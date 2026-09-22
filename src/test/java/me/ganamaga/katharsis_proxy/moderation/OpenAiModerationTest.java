@@ -1,10 +1,12 @@
 package me.ganamaga.katharsis_proxy.moderation;
 
 import com.sun.net.httpserver.HttpServer;
+import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
@@ -13,6 +15,8 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayDeque;
@@ -65,8 +69,15 @@ class OpenAiModerationTest {
     private HttpServer server;
     private URI endpoint;
 
+    /** Stands in for the plugin data directory, so debug.log is a real file. */
+    @TempDir
+    Path dataDirectory;
+
+    private DebugLog debug;
+
     @BeforeEach
     void startServer() throws IOException {
+        debug = DebugLog.create(LoggerFactory.getLogger(OpenAiModerationTest.class), dataDirectory, true);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/v1/moderations", exchange -> {
             synchronized (received) {
@@ -96,8 +107,9 @@ class OpenAiModerationTest {
     }
 
     private OpenAiModeration client(RateLimitBudget budget, List<String> categories, double threshold) {
-        return new OpenAiModeration(LoggerFactory.getLogger(OpenAiModerationTest.class), HttpClient.newHttpClient(),
-                endpoint, "sk-test", "omni-moderation-latest", Duration.ofSeconds(5L), budget, categories, threshold);
+        return new OpenAiModeration(LoggerFactory.getLogger(OpenAiModerationTest.class), debug,
+                HttpClient.newHttpClient(), endpoint, "sk-test", "omni-moderation-latest", Duration.ofSeconds(5L),
+                budget, categories, threshold);
     }
 
     private OpenAiModeration client() {
@@ -208,6 +220,64 @@ class OpenAiModerationTest {
 
         replies.add(Reply.of(200, "{\"results\":[]}"));
         assertEquals(OpenAiModeration.Outcome.ERROR, client().check("hello").outcome());
+    }
+
+    @Test
+    @DisplayName("records the request and the answer in debug.log, and never the key")
+    void writesTheCallToTheDebugLog() throws IOException {
+        replies.add(Reply.of(200, FLAGGED));
+        client().check("Hello, World!");
+
+        String log = debugLog();
+        List<String> calls = log.lines().filter(line -> line.contains("openai call=1 ")).toList();
+        assertEquals(2, calls.size(), log);
+        assertTrue(calls.get(0).contains("request model=omni-moderation-latest"), calls.get(0));
+        assertTrue(calls.get(0).contains("url=" + endpoint), calls.get(0));
+        assertTrue(calls.get(0).contains("text=\"Hello, World!\""), calls.get(0));
+        assertTrue(calls.get(1).contains("answer status=200"), calls.get(1));
+        assertTrue(calls.get(1).contains("outcome=FLAGGED"), calls.get(1));
+        assertTrue(calls.get(1).contains("categories=[harassment, hate]"), calls.get(1));
+        assertFalse(log.contains("sk-test"), "the API key must never reach debug.log: " + log);
+    }
+
+    @Test
+    @DisplayName("records an error status in debug.log with the body")
+    void writesAFailedCallToTheDebugLog() throws IOException {
+        replies.add(Reply.of(401, "{\"error\":{\"message\":\"Incorrect API key provided\"}}"));
+        client().check("Hello");
+
+        String log = debugLog();
+        assertTrue(log.contains("answer status=401"), log);
+        assertTrue(log.contains("outcome=ERROR"), log);
+        assertTrue(log.contains("Incorrect API key provided"), log);
+    }
+
+    @Test
+    @DisplayName("records a call it did not make because the budget is spent")
+    void writesASkippedCallToTheDebugLog() throws IOException {
+        OpenAiModeration client = client(new RateLimitBudget(Clock.systemUTC(), 0, 0, 1), List.of(), 0.0d);
+        client.check("first");
+        client.check("second");
+
+        String log = debugLog();
+        assertTrue(log.contains("openai call=2 skipped"), log);
+        assertTrue(log.contains("reason=out-of-quota"), log);
+    }
+
+    @Test
+    @DisplayName("writes nothing at all when debug logging is off")
+    void writesNothingWhenDisabled() throws IOException {
+        // The file the @BeforeEach log opened. A disabled log must not bring it back.
+        Files.delete(dataDirectory.resolve(DebugLog.FILE_NAME));
+        debug = DebugLog.DISABLED;
+        client().check("Hello");
+
+        assertFalse(Files.exists(dataDirectory.resolve(DebugLog.FILE_NAME)));
+    }
+
+    /** Every line written for this test, newlines and all. */
+    private String debugLog() throws IOException {
+        return Files.readString(dataDirectory.resolve(DebugLog.FILE_NAME), StandardCharsets.UTF_8);
     }
 
     @Test

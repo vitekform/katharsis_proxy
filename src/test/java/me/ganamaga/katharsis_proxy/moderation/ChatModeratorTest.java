@@ -1,6 +1,7 @@
 package me.ganamaga.katharsis_proxy.moderation;
 
 import com.sun.net.httpserver.HttpServer;
+import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -75,8 +76,8 @@ class ChatModeratorTest {
     }
 
     private ChatModerator moderator(RuleFilter rules, RateLimitBudget budget) {
-        OpenAiModeration openAi = new OpenAiModeration(LOGGER, HttpClient.newHttpClient(), endpoint, "sk-test",
-                "omni-moderation-latest", Duration.ofSeconds(5L), budget, List.of(), 0.0d);
+        OpenAiModeration openAi = new OpenAiModeration(LOGGER, DebugLog.DISABLED, HttpClient.newHttpClient(),
+                endpoint, "sk-test", "omni-moderation-latest", Duration.ofSeconds(5L), budget, List.of(), 0.0d);
         return new ChatModerator(LOGGER, rules, openAi);
     }
 

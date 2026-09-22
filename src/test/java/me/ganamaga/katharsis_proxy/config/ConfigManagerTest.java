@@ -88,6 +88,21 @@ class ConfigManagerTest {
     }
 
     @Test
+    @DisplayName("debug-log is on by default and can be turned off by name")
+    void readsDebugLog(@TempDir Path directory) throws ConfigurateException, IOException {
+        assertTrue(managerIn(directory).config().debugLog(), "on before anything is read");
+
+        managerIn(directory).load();
+        Files.writeString(directory.resolve("config.yml"), """
+                debug-log: false
+                """);
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        assertFalse(manager.config().debugLog());
+    }
+
+    @Test
     @DisplayName("every motd key in the shipped config.yml maps onto a field")
     void shippedMotdKeysAllMap(@TempDir Path directory) throws ConfigurateException {
         managerIn(directory).load();

@@ -47,6 +47,7 @@ import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
 import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
+import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
 
@@ -91,6 +92,11 @@ public class Katharsis_proxy {
     private final PlayerDiscordChatCache discordChatCache = new PlayerDiscordChatCache();
 
     private ConfigManager configManager;
+
+    /** {@link DebugLog#DISABLED} until the config has been read, and after it
+     * when debug-log is off. */
+    private DebugLog debugLog = DebugLog.DISABLED;
+
     private LanguageRegistry languageRegistry;
     private Messages messages;
     private DatabaseManager database;
@@ -111,6 +117,7 @@ public class Katharsis_proxy {
     public void onProxyInitialization(ProxyInitializeEvent event) {
         logger.info(YELLOW + "Loading Katharsis Proxy...");
         loadConfig();
+        openDebugLog();
         loadLanguages();
         setUpDatabase();
         // Before the commands and plugin messaging, which hand work to the bot.
@@ -169,6 +176,20 @@ public class Katharsis_proxy {
             logger.info("Loaded configuration from {}.", configManager.configPath());
         } catch (ConfigurateException e) {
             logger.error(RED + "Could not load config.yml; continuing with the built-in defaults.", e);
+        }
+    }
+
+    /**
+     * Opens debug.log, when it is turned on. Done after the config is read and
+     * before anything that writes to it, so a failure here costs nothing more
+     * than the file.
+     */
+    private void openDebugLog() {
+        debugLog = DebugLog.create(logger, dataDirectory, configManager.config().debugLog());
+        if (debugLog.isEnabled()) {
+            logger.info("Writing OpenAI moderation calls to {}.", debugLog.path());
+        } else {
+            logger.info("debug-log is off; nothing is written to {}.", DebugLog.FILE_NAME);
         }
     }
 
@@ -253,7 +274,7 @@ public class Katharsis_proxy {
      * reported chat is relayed and logged exactly as it was before.
      */
     private void setUpModeration() {
-        chatModerator = ModerationFactory.create(logger, configManager.config().moderation());
+        chatModerator = ModerationFactory.create(logger, configManager.config().moderation(), debugLog);
         if (chatModerator == null) {
             return;
         }
