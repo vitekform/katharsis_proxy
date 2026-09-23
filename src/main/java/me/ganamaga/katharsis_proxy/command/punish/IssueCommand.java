@@ -240,7 +240,11 @@ public final class IssueCommand extends StaffCommand {
         if (args.accountOnly()) {
             return IpMode.ACCOUNT;
         }
-        return given == PunishmentType.BAN && context.config().get().banIpByDefault()
-                ? IpMode.ACCOUNT_AND_IP : IpMode.ACCOUNT;
+        boolean withAddress = switch (given) {
+            case BAN -> context.config().get().banIpByDefault();
+            case MUTE -> context.config().get().muteIpByDefault();
+            default -> false;
+        };
+        return withAddress ? IpMode.ACCOUNT_AND_IP : IpMode.ACCOUNT;
     }
 }

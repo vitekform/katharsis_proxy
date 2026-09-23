@@ -39,6 +39,9 @@ public class PunishmentsConfig {
     /** {@code /ban} also bans the target's last address unless {@code -a} is given. */
     private boolean banIpByDefault = true;
 
+    /** {@code /mute} and {@code /tempmute} also mute the target's last address unless {@code -a} is given. */
+    private boolean muteIpByDefault = false;
+
     /** Stored when a staff member gives no reason. */
     private String defaultReason = "No reason given";
 
@@ -65,6 +68,8 @@ public class PunishmentsConfig {
 
     private AutoModConfig automod = new AutoModConfig();
 
+    private AltsConfig alts = new AltsConfig();
+
     public boolean enabled() {
         return enabled;
     }
@@ -89,6 +94,10 @@ public class PunishmentsConfig {
 
     public boolean banIpByDefault() {
         return banIpByDefault;
+    }
+
+    public boolean muteIpByDefault() {
+        return muteIpByDefault;
     }
 
     public String defaultReason() {
@@ -130,6 +139,10 @@ public class PunishmentsConfig {
 
     public AutoModConfig automod() {
         return automod == null ? new AutoModConfig() : automod;
+    }
+
+    public AltsConfig alts() {
+        return alts == null ? new AltsConfig() : alts;
     }
 
     private static DefaultScope parseScope(String value, DefaultScope fallback) {

@@ -329,7 +329,7 @@ auth:
 punishments:
   # Bans, mutes, kicks and warnings, given with /ban, /tempban, /banip,
   # /unban, /mute, /tempmute, /muteip, /unmute, /warn, /unwarn, /warns,
-  # /punish, /kick, /history and /check. Every command needs its permission,
+  # /punish, /kick, /history, /check and /alts. Every command needs its permission,
   # katharsis.punish.<command>, which nobody has until it is granted.
   # Punishing on the whole network also needs katharsis.punish.global, seeing
   # addresses katharsis.punish.seeip; staff with katharsis.punish.notify are
@@ -366,6 +366,10 @@ punishments:
   # account; /banip or -i bans only the address.
   ban-ip-by-default: true
 
+  # The same for /mute and /tempmute: also mute the address, so a second
+  # account cannot talk for the first. /muteip or -i mutes only the address.
+  mute-ip-by-default: false
+
   # Stored as the reason when a staff member gives none.
   default-reason: "No reason given"
 
@@ -401,6 +405,26 @@ punishments:
     - me
     - say
     - mail
+
+  # Accounts that share an address, listed with /alts.
+  alts:
+    # Two accounts count as sharing an address only if both used it within
+    # this long. Addresses in trusted-proxy-ips never count.
+    lookback: 30d
+
+    # An account joining from an address shared with an account under a
+    # network-wide ban may be evading it:
+    #   ignore - do nothing
+    #   alert  - tell staff with katharsis.punish.notify
+    #   ban    - ban the account too, for as long as the original, and tell staff
+    # Households, schools and mobile networks share addresses too, so prefer
+    # alert unless you know your players.
+    evasion: alert
+
+    # Tell staff when a player joins with at least join-alert-min-warns active
+    # warnings, or with banned accounts on their addresses.
+    join-alerts: true
+    join-alert-min-warns: 1
 
   # Warnings, given with /warn, lifted with /unwarn and listed with /warns.
   warns:

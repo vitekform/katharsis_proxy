@@ -94,6 +94,29 @@ public final class PlayerHistoryRepository {
             WHERE ip = ? AND last_seen >= ?
             ORDER BY last_seen DESC""";
 
+    /**
+     * Other accounts seen on any address {@code uuid} was seen on, both within
+     * the window, with their current names.
+     */
+    private static final String SELECT_SHARING = """
+            SELECT other.uuid, history.name, other.ip, other.last_seen
+            FROM katharsis_player_ips mine
+            JOIN katharsis_player_ips other ON other.ip = mine.ip AND other.uuid <> mine.uuid
+            JOIN katharsis_player_history history ON history.uuid = other.uuid
+            WHERE mine.uuid = ? AND mine.last_seen >= ? AND other.last_seen >= ?
+            ORDER BY other.last_seen DESC""";
+
+    /**
+     * An account seen on an address another was seen on.
+     *
+     * @param uuid     the other account
+     * @param name     its current name
+     * @param ip       the address they share
+     * @param lastSeen when the other account was last seen on it
+     */
+    public record SharedAddress(UUID uuid, String name, String ip, Instant lastSeen) {
+    }
+
     /** SQLState for a unique/primary key violation, shared by PostgreSQL and H2. */
     private static final String UNIQUE_VIOLATION = "23505";
 
@@ -241,6 +264,32 @@ public final class PlayerHistoryRepository {
             statement.setString(1, ip);
             statement.setObject(2, OffsetDateTime.ofInstant(since, ZoneOffset.UTC));
             return readIps(statement);
+        }
+    }
+
+    /**
+     * Every other account seen, at or after {@code since}, on an address
+     * {@code uuid} was also seen on at or after {@code since}; one row per
+     * account and address, most recent first.
+     */
+    public List<SharedAddress> sharingAddresses(UUID uuid, Instant since) throws SQLException {
+        OffsetDateTime from = OffsetDateTime.ofInstant(since, ZoneOffset.UTC);
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SELECT_SHARING)) {
+            statement.setObject(1, uuid);
+            statement.setObject(2, from);
+            statement.setObject(3, from);
+            try (ResultSet results = statement.executeQuery()) {
+                List<SharedAddress> found = new ArrayList<>();
+                while (results.next()) {
+                    found.add(new SharedAddress(
+                            results.getObject("uuid", UUID.class),
+                            results.getString("name"),
+                            results.getString("ip"),
+                            results.getObject("last_seen", OffsetDateTime.class).toInstant()));
+                }
+                return found;
+            }
         }
     }
 

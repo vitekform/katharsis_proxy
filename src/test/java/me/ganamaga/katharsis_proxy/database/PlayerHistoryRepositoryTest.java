@@ -118,4 +118,28 @@ class PlayerHistoryRepositoryTest {
         assertThrows(IllegalArgumentException.class, () -> history.recordJoin(id, "x".repeat(33), null, NOW));
         assertThrows(IllegalArgumentException.class, () -> history.recordJoin(id, "Kraxie", "1".repeat(46), NOW));
     }
+
+    @Test
+    @DisplayName("accounts sharing an address are found, with names, within the window, never oneself")
+    void sharingAddresses() throws SQLException {
+        UUID main = UUID.randomUUID();
+        UUID alt = UUID.randomUUID();
+        UUID stale = UUID.randomUUID();
+        UUID stranger = UUID.randomUUID();
+        history.recordJoin(main, "Main", "10.0.0.1", NOW);
+        history.recordJoin(main, "Main", "10.0.0.2", NOW);
+        history.recordJoin(alt, "Alt", "10.0.0.1", NOW.minusSeconds(60));
+        history.recordJoin(alt, "Alt", "10.0.0.2", NOW.minusSeconds(30));
+        history.recordJoin(stale, "Stale", "10.0.0.1", NOW.minusSeconds(86_400));
+        history.recordJoin(stranger, "Stranger", "10.0.0.3", NOW);
+
+        List<PlayerHistoryRepository.SharedAddress> shared =
+                history.sharingAddresses(main, NOW.minusSeconds(3_600));
+
+        assertEquals(List.of(
+                new PlayerHistoryRepository.SharedAddress(alt, "Alt", "10.0.0.2", NOW.minusSeconds(30)),
+                new PlayerHistoryRepository.SharedAddress(alt, "Alt", "10.0.0.1", NOW.minusSeconds(60))), shared);
+        assertEquals(3, history.sharingAddresses(main, NOW.minusSeconds(172_800)).size(), "a longer window");
+        assertTrue(history.sharingAddresses(stranger, NOW.minusSeconds(3_600)).isEmpty());
+    }
 }

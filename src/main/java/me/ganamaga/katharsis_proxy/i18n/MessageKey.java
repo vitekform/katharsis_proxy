@@ -400,7 +400,34 @@ public enum MessageKey {
     PUNISH_UNKNOWN_TEMPLATE("punish-unknown-template"),
 
     /** A template of another type given to /ban, /mute or /warn. Placeholders: {@code <name>}, {@code <type>}. */
-    PUNISH_TEMPLATE_TYPE("punish-template-type");
+    PUNISH_TEMPLATE_TYPE("punish-template-type"),
+
+    /** To staff. Placeholders: {@code <player>}, {@code <alt>}, {@code <id>}. */
+    PUNISH_STAFF_EVASION("punish-staff-evasion"),
+
+    /** To staff. Placeholders: {@code <player>}, {@code <warns>}, {@code <alts>}. */
+    PUNISH_STAFF_JOIN_ALERT("punish-staff-join-alert"),
+
+    /** Placeholders: {@code <player>}, {@code <count>}. */
+    PUNISH_ALTS_HEADER("punish-alts-header"),
+
+    /** Placeholders: {@code <player>}, {@code <status>}, {@code <shared>}, {@code <last>}. */
+    PUNISH_ALTS_LINE("punish-alts-line"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_ALTS_NONE("punish-alts-none"),
+
+    /** How many addresses two accounts share, for staff who may not see them. Placeholders: {@code <count>}. */
+    PUNISH_ALTS_SHARED("punish-alts-shared"),
+
+    /** Placeholders: none. */
+    PUNISH_ALT_BANNED("punish-alt-banned"),
+
+    /** Placeholders: none. */
+    PUNISH_ALT_MUTED("punish-alt-muted"),
+
+    /** Placeholders: none. */
+    PUNISH_ALT_CLEAN("punish-alt-clean");
 
     private final String key;
 

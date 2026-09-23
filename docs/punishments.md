@@ -28,6 +28,7 @@ granted**; without the node the command is not even suggested.
 | `/kick` | `<player> [-q] [reason]` | Online players only; kept in the history. |
 | `/history` | `<player\|ip> [page]` | Everything ever issued, newest first. |
 | `/check` (`/lookup`) | `<player\|ip>` | What is in force now, and when and from where the player was last seen. |
+| `/alts` | `<player>` | Other accounts that played from the player's addresses recently, and whether they are banned or muted. |
 
 Durations combine `y`, `mo` (30 days), `w`, `d`, `h`, `m` and `s`, e.g. `30m`,
 `7d`, `1mo2w`. `perm` means for good.
@@ -106,6 +107,9 @@ server without the companion, a muted player can still chat; staff muting a
 player on such a server are warned. The proxy's own commands in the list are
 blocked on the proxy.
 
+Mutes hold the account only, unless `mute-ip-by-default` is on; `/muteip` or
+`-i` mutes only the address.
+
 A muted player who tries to speak is told why and for how long. They are told
 when they are muted, and when the mute is lifted or runs out.
 
@@ -157,6 +161,30 @@ With `automod.enabled`, chat the moderation filters held back (see
 `automod.template` if set, on the server it was written on. It counts towards
 escalation like any other. A player gets at most one per `automod.cooldown`,
 and a message that could not be checked at all is never held against them.
+
+## Alts and ban evasion
+
+Every session's address is recorded once the player reaches a server (so
+never for someone who failed a password account's login). Two accounts
+**share an address** when both used it within `alts.lookback`; addresses in
+`trusted-proxy-ips` never count. `/alts` lists them, with the addresses only for
+staff with `katharsis.punish.seeip`.
+
+When a player joins from an address shared with an account under a
+network-wide ban, `alts.evasion` decides:
+
+| Value | |
+|---|---|
+| `ignore` | Nothing. |
+| `alert` | Staff with `katharsis.punish.notify` are told. The default. |
+| `ban` | Staff are told, and the new account is banned on the whole network for as long as the original ban has left, issued by "Evasion" and linked to it. |
+
+A shared address is a hint, not proof: households, schools and mobile networks
+put strangers on one address. Players exempt from punishment are not looked at.
+
+With `alts.join-alerts`, staff are also told when a player joins with at least
+`join-alert-min-warns` active warnings, or with banned accounts on their
+addresses.
 
 ## When the database is down
 

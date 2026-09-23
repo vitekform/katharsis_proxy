@@ -19,6 +19,7 @@ import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
 import me.ganamaga.katharsis_proxy.command.AuthCommand;
 import me.ganamaga.katharsis_proxy.command.LinkCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
+import me.ganamaga.katharsis_proxy.command.punish.AltsCommand;
 import me.ganamaga.katharsis_proxy.command.punish.CheckCommand;
 import me.ganamaga.katharsis_proxy.command.punish.HistoryCommand;
 import me.ganamaga.katharsis_proxy.command.punish.IssueCommand;
@@ -70,8 +71,10 @@ import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import me.ganamaga.katharsis_proxy.punish.ActivePunishments;
+import me.ganamaga.katharsis_proxy.punish.AltDetector;
 import me.ganamaga.katharsis_proxy.punish.AutoWarn;
 import me.ganamaga.katharsis_proxy.punish.IpAddresses;
+import me.ganamaga.katharsis_proxy.punish.JoinInspector;
 import me.ganamaga.katharsis_proxy.punish.MuteEnforcer;
 import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
 import me.ganamaga.katharsis_proxy.punish.PunishmentService;
@@ -169,6 +172,7 @@ public class Katharsis_proxy {
     private PunishmentService punishmentService;
     private MuteEnforcer muteEnforcer;
     private AutoWarn autoWarn;
+    private SessionRecorder sessionRecorder;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
@@ -322,7 +326,8 @@ public class Katharsis_proxy {
         proxy.getEventManager().register(this,
                 new PlayerJoinListener(logger, languageRegistry, database, players, languageCache,
                         discordChatCache, firstJoinMenu));
-        proxy.getEventManager().register(this, new SessionRecorder(logger, playerHistory, Clock.systemUTC()));
+        sessionRecorder = new SessionRecorder(logger, playerHistory, Clock.systemUTC());
+        proxy.getEventManager().register(this, sessionRecorder);
         logger.info(GREEN + "Player entities will be created on first join.");
     }
 
@@ -357,7 +362,8 @@ public class Katharsis_proxy {
                         + "in velocity.toml.", group, member)));
         ServerBans serverBans = new ServerBans(proxy, punishmentService, scopes, text);
         punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock, serverBans));
-        punishmentService.addObserver(new StaffNotifier(proxy, text));
+        StaffNotifier staff = new StaffNotifier(proxy, text);
+        punishmentService.addObserver(staff);
         muteEnforcer = new MuteEnforcer(proxy, logger, punishmentService, scopes, text,
                 () -> configManager.config().punishments());
         punishmentService.addObserver(muteEnforcer);
@@ -384,6 +390,11 @@ public class Katharsis_proxy {
         autoWarn = new AutoWarn(logger, punishmentService, templates, () -> configManager.config().punishments(),
                 task -> proxy.getScheduler().buildTask(this, task).schedule(), this::serverNames);
 
+        AltDetector alts = new AltDetector(playerHistory, punishmentService,
+                () -> configManager.config().punishments().alts());
+        sessionRecorder.addInspector(new JoinInspector(logger, punishmentService, alts, staff,
+                () -> configManager.config().punishments().alts()));
+
         PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
                 scopes, text, () -> configManager.config().punishments(), companions, templates, escalation);
         registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
@@ -408,8 +419,9 @@ public class Katharsis_proxy {
         registerStaffCommand("kick", new KickCommand(context));
         registerStaffCommand("history", new HistoryCommand(context));
         registerStaffCommand("check", new CheckCommand(context), "lookup");
+        registerStaffCommand("alts", new AltsCommand(context, alts));
         logger.info(GREEN + "Punishments enabled: /ban, /tempban, /banip, /unban, /mute, /tempmute, /muteip, "
-                + "/unmute, /warn, /unwarn, /warns, /punish, /kick, /history, /check. Mutes are enforced on servers "
+                + "/unmute, /warn, /unwarn, /warns, /punish, /kick, /history, /check, /alts. Mutes are enforced on servers "
                 + "running the companion.");
         logger.info("{} punishment template(s), {} warning escalation step(s); automatic warnings for flagged "
                 + "chat are {}.", templates.names().size(), escalation.steps().size(),

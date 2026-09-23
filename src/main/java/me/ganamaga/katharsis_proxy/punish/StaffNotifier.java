@@ -7,6 +7,7 @@ import me.ganamaga.katharsis_proxy.entity.PunishmentType;
 import me.ganamaga.katharsis_proxy.i18n.MessageKey;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 
 import java.util.function.BiFunction;
 
@@ -52,6 +53,14 @@ public final class StaffNotifier implements PunishmentObserver {
                 Placeholder.component("player", target(language, punishment, viewer)),
                 Placeholder.component("type", text.type(language, punishment.type())),
                 Placeholder.unparsed("id", Long.toString(punishment.id()))));
+    }
+
+    /**
+     * Tells staff {@code key}, rendered in each one's language, behind no
+     * prefix: staff messages carry their own marker.
+     */
+    public void announce(MessageKey key, TagResolver... placeholders) {
+        broadcast((language, viewer) -> text.messages().render(language, key, placeholders));
     }
 
     private void broadcast(BiFunction<String, Player, Component> render) {
