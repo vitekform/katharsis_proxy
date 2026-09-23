@@ -51,7 +51,7 @@
                      classic major.minor form the 1.21 line uses. -->
                 <paper.api.version>26.1.2</paper.api.version>
                 <paper.supported.min>26.1.2</paper.supported.min>
-                <paper.supported.max>26.2</paper.supported.max>
+                <paper.supported.max>26.3</paper.supported.max>
                 <java.release>25</java.release>
                 <required.jdk.range>[25,)</required.jdk.range>
                 <paper.variant.suffix>-mc26</paper.variant.suffix>

@@ -39,6 +39,9 @@ DEFAULT_VERSIONS=(
   1.21.11-R0.1-SNAPSHOT
   26.1.2.build.74-stable
   26.2.build.123-stable
+  # 26.3 has no stable Paper build yet; swap in the first -stable one once it
+  # ships.
+  26.3.build.37-alpha
 )
 
 STRICT=false

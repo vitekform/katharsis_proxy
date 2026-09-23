@@ -145,7 +145,7 @@ need different JDKs:
 | Variant | Jar | Built against | Bytecode | `api-version` | Runs on |
 |---|---|---|---|---|---|
 | default | `katharsis_paper-<v>.jar` | paper-api 1.21.1 | Java 21 | `1.21` | Paper 1.21.1 – 1.21.11 |
-| `-P paper-26` | `katharsis_paper-<v>-mc26.jar` | paper-api 26.1.2 | Java 25 | `26.1.2` | Paper 26.1.2 – 26.2 |
+| `-P paper-26` | `katharsis_paper-<v>-mc26.jar` | paper-api 26.1.2 | Java 25 | `26.1.2` | Paper 26.1.2 – 26.3 |
 
 Each variant is compiled against the **oldest** API in its line, which is what
 lets one jar cover the whole line: a plugin built against an old API runs on
