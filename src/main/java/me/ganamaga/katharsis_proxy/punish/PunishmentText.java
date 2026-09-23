@@ -110,6 +110,66 @@ public final class PunishmentText {
                 : messages.render(language, MessageKey.PUNISH_APPEAL_LINE, Placeholder.unparsed("url", url));
     }
 
+    /**
+     * What to tell whoever asked for {@code result}, about {@code target},
+     * without the prefix.
+     */
+    public Component issueResult(String language, IssueResult result, String target, PunishmentType type) {
+        return switch (result) {
+            case IssueResult.Issued issued -> messages.render(language,
+                    type == PunishmentType.KICK ? MessageKey.PUNISH_KICKED : MessageKey.PUNISH_ISSUED,
+                    Placeholder.unparsed("player", target),
+                    Placeholder.component("type", type(language, type)),
+                    Placeholder.component("scope", scope(language, issued.punishment().scope())),
+                    Placeholder.component("duration", length(language, issued.punishment())),
+                    Placeholder.unparsed("id", Long.toString(issued.punishment().id())));
+            case IssueResult.AlreadyActive already -> messages.render(language, MessageKey.PUNISH_ALREADY_ACTIVE,
+                    Placeholder.unparsed("player", target),
+                    Placeholder.component("type", type(language, type)),
+                    Placeholder.unparsed("id", Long.toString(already.existing().id())));
+            case IssueResult.Exempt ignored ->
+                    messages.render(language, MessageKey.PUNISH_TARGET_EXEMPT, Placeholder.unparsed("player", target));
+            case IssueResult.Outranked ignored ->
+                    messages.render(language, MessageKey.PUNISH_TARGET_OUTRANKS, Placeholder.unparsed("player", target));
+            case IssueResult.NoAddress ignored ->
+                    messages.render(language, MessageKey.PUNISH_NO_ADDRESS, Placeholder.unparsed("player", target));
+            case IssueResult.Unavailable ignored -> messages.render(language, MessageKey.PUNISH_UNAVAILABLE);
+        };
+    }
+
+    /** One line of {@code /history}. */
+    public Component historyLine(String language, Punishment entry, Instant now) {
+        Component status;
+        if (entry.isRevoked()) {
+            status = messages.render(language, MessageKey.PUNISH_STATUS_REVOKED,
+                    Placeholder.unparsed("issuer", entry.revocation().by().name()));
+        } else if (!entry.type().isLasting()) {
+            status = messages.render(language, MessageKey.PUNISH_STATUS_DONE);
+        } else {
+            status = messages.render(language,
+                    entry.isActiveAt(now) ? MessageKey.PUNISH_STATUS_ACTIVE : MessageKey.PUNISH_STATUS_EXPIRED);
+        }
+        return messages.render(language, MessageKey.PUNISH_HISTORY_LINE,
+                Placeholder.unparsed("id", Long.toString(entry.id())),
+                Placeholder.unparsed("date", date(entry.createdAt())),
+                Placeholder.component("type", type(language, entry.type())),
+                Placeholder.component("scope", scope(language, entry.scope())),
+                Placeholder.component("duration", length(language, entry)),
+                Placeholder.unparsed("reason", entry.reason()),
+                Placeholder.unparsed("issuer", entry.issuer().name()),
+                Placeholder.component("status", status));
+    }
+
+    /** One line of {@code /check}: a punishment in force. */
+    public Component activeLine(String language, Punishment punishment, Instant now) {
+        return messages.render(language, MessageKey.PUNISH_CHECK_ACTIVE,
+                Placeholder.component("type", type(language, punishment.type())),
+                Placeholder.component("scope", scope(language, punishment.scope())),
+                Placeholder.component("remaining", remaining(language, punishment, now)),
+                Placeholder.unparsed("reason", punishment.reason()),
+                Placeholder.unparsed("id", Long.toString(punishment.id())));
+    }
+
     public Component kickScreen(String language, Punishment kick) {
         return kickScreen(language, kick.reason(), kick.issuer().name());
     }

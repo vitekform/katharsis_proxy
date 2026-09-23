@@ -21,6 +21,7 @@
         <h2.version>2.5.250</h2.version>
         <discord4j.version>3.3.3</discord4j.version>
         <limboapi.version>1.1.27</limboapi.version>
+        <luckperms.version>5.5</luckperms.version>
         <password4j.version>1.8.4</password4j.version>
         <junit.version>5.14.4</junit.version>
         <slf4j.version>2.0.17</slf4j.version>
@@ -405,6 +406,15 @@
             <groupId>net.elytrium.limboapi</groupId>
             <artifactId>api</artifactId>
             <version>${limboapi.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- The permissions plugin, asked about players who are offline and about
+             staff rank. Optional at runtime: see velocity-plugin.json. -->
+        <dependency>
+            <groupId>net.luckperms</groupId>
+            <artifactId>api</artifactId>
+            <version>${luckperms.version}</version>
             <scope>provided</scope>
         </dependency>
 

@@ -14,6 +14,8 @@ public final class PunishPermissions {
     public static final String EXEMPT = ROOT + "exempt";
     /** May punish on the whole network. */
     public static final String GLOBAL = ROOT + "global";
+    /** May punish staff who rank at or above them. */
+    public static final String OVERRIDE = ROOT + "override";
     /** Sees addresses in full. */
     public static final String SEE_IP = ROOT + "seeip";
 

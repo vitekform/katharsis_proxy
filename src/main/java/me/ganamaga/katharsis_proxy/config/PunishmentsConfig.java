@@ -70,6 +70,8 @@ public class PunishmentsConfig {
 
     private AltsConfig alts = new AltsConfig();
 
+    private PunishDiscordConfig discord = new PunishDiscordConfig();
+
     public boolean enabled() {
         return enabled;
     }
@@ -143,6 +145,10 @@ public class PunishmentsConfig {
 
     public AltsConfig alts() {
         return alts == null ? new AltsConfig() : alts;
+    }
+
+    public PunishDiscordConfig discord() {
+        return discord == null ? new PunishDiscordConfig() : discord;
     }
 
     private static DefaultScope parseScope(String value, DefaultScope fallback) {

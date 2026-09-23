@@ -110,6 +110,10 @@ public final class ConfigManager {
                 logger.warn("punishments.server-groups.{} has no servers, so punishments there apply nowhere.", group);
             }
         });
+        if (punishments.discord().commandsEnabled() && punishments.discord().staffRoleIds().isEmpty()) {
+            logger.warn("punishments.discord.commands-enabled is true but no staff-role-ids are set, so nobody "
+                    + "can use /punish on Discord.");
+        }
         for (String ip : punishments.trustedProxyIps()) {
             if (IpAddresses.parseLiteral(ip).isEmpty()) {
                 logger.warn("punishments.trusted-proxy-ips entry '{}' is not an IP address and is ignored.", ip);

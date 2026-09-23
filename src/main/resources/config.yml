@@ -426,6 +426,25 @@ punishments:
     join-alerts: true
     join-alert-min-warns: 1
 
+  # Punishments on Discord. The bot must be running (see discord).
+  discord:
+    # Every punishment issued and lifted is posted to this channel. 0 posts
+    # them to moderation.staff-channel-id; with neither, nothing is posted.
+    log-channel-id: 0
+    # Show addresses in the log. Off, they are hidden: anyone who can read the
+    # channel could read them.
+    log-ips: false
+
+    # /punish on Discord: ban, mute, warn, kick, unban, unmute, unwarn,
+    # history and check. Using it takes all three of:
+    #   - one of the roles below,
+    #   - a Minecraft account linked with /link,
+    #   - that account holding the same permission as the command in game,
+    #     e.g. katharsis.punish.ban. Without LuckPerms, only while online.
+    # What is issued is recorded as issued by the linked Minecraft account.
+    commands-enabled: false
+    staff-role-ids: []
+
   # Warnings, given with /warn, lifted with /unwarn and listed with /warns.
   warns:
     # How long a warning counts towards escalation: a length such as 30d, or

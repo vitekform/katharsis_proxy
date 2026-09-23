@@ -53,7 +53,28 @@ Flags may stand anywhere after the command.
 | `katharsis.punish.global` | Punish on the whole network. The console always may. |
 | `katharsis.punish.notify` | Be told about every punishment issued and lifted. |
 | `katharsis.punish.exempt` | Cannot be punished, and is not caught by bans on an address they share. |
-| `katharsis.punish.seeip` | See addresses in `/check` and staff messages. |
+| `katharsis.punish.seeip` | See addresses in `/check`, `/alts` and staff messages. |
+| `katharsis.punish.override` | Punish staff at or above one's own rank. |
+
+### Ranks
+
+With [LuckPerms](https://luckperms.net), staff can be ranked with the meta value
+`katharsis-punish-weight`:
+
+```
+/lp group mod meta set katharsis-punish-weight 10
+/lp group admin meta set katharsis-punish-weight 50
+```
+
+Staff cannot punish anyone whose weight is at or above their own, unless they
+hold `katharsis.punish.override`. A player without the meta weighs nothing, so
+until weights are set up anyone may punish anyone not exempt. The console always
+may.
+
+LuckPerms is optional. With it, the permissions of offline players are known:
+an offline admin is still exempt, and Discord staff need not be online. Without
+it, only players online can be asked about: offline players are never exempt and
+have no rank.
 
 ## Scope
 
@@ -185,6 +206,31 @@ put strangers on one address. Players exempt from punishment are not looked at.
 With `alts.join-alerts`, staff are also told when a player joins with at least
 `join-alert-min-warns` active warnings, or with banned accounts on their
 addresses.
+
+## Discord
+
+With the Discord bot running (see the `discord` section of `config.yml`):
+
+- **The punishment log.** Every punishment issued and lifted is posted to
+  `punishments.discord.log-channel-id`, or to `moderation.staff-channel-id` if
+  that is not set: who, where, how long (counting down in each reader's time
+  zone), why, by whom, and the template or punishment it came from. Addresses
+  are hidden unless `log-ips` is on.
+- **`/punish`**, with `commands-enabled`: `ban`, `mute`, `warn`, `kick`,
+  `unban`, `unmute`, `unwarn`, `history` and `check`, working as in game.
+  Using it takes all of:
+  1. one of the roles in `staff-role-ids`;
+  2. a Minecraft account linked with `/link`;
+  3. that account holding the same permission the command needs in game, e.g.
+     `katharsis.punish.ban`, `katharsis.punish.tempban` with a duration, and
+     `katharsis.punish.global` to punish on the whole network. Without
+     LuckPerms this is only known while they are online in game.
+
+  What they issue is recorded as issued by their Minecraft account, and ranks
+  apply as in game. Without a `scope`, punishments apply on
+  `console-default-scope`. Replies are only shown to whoever asked. The command
+  is hidden from members without Moderate Members by default; Discord's server
+  settings can change who sees it, but not who may use it.
 
 ## When the database is down
 

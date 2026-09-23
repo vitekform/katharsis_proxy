@@ -427,7 +427,19 @@ public enum MessageKey {
     PUNISH_ALT_MUTED("punish-alt-muted"),
 
     /** Placeholders: none. */
-    PUNISH_ALT_CLEAN("punish-alt-clean");
+    PUNISH_ALT_CLEAN("punish-alt-clean"),
+
+    /** On Discord, the description of the /punish command. Plain text, at most 100 characters. Placeholders: none. */
+    DISCORD_PUNISH_DESCRIPTION("discord-punish-description"),
+
+    /** On Discord, the member holds none of the staff roles. Placeholders: none. */
+    DISCORD_PUNISH_NO_ROLE("discord-punish-no-role"),
+
+    /** On Discord, the member has no linked Minecraft account. Placeholders: none. */
+    DISCORD_PUNISH_NOT_LINKED("discord-punish-not-linked"),
+
+    /** On Discord, the linked account lacks a permission. Placeholders: {@code <node>}. */
+    DISCORD_PUNISH_NO_PERMISSION("discord-punish-no-permission");
 
     private final String key;
 

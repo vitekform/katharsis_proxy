@@ -4,9 +4,7 @@ import com.velocitypowered.api.command.CommandSource;
 import me.ganamaga.katharsis_proxy.entity.Punishment;
 import me.ganamaga.katharsis_proxy.i18n.MessageKey;
 import me.ganamaga.katharsis_proxy.punish.PunishArgs;
-import me.ganamaga.katharsis_proxy.punish.PunishmentText;
 import me.ganamaga.katharsis_proxy.punish.Target;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.sql.SQLException;
@@ -67,32 +65,7 @@ public final class HistoryCommand extends StaffCommand {
                 Placeholder.unparsed("pages", Integer.toString(pages)));
         Instant now = context.service().clock().instant();
         for (Punishment entry : entries) {
-            source.sendMessage(line(language, entry, now));
+            source.sendMessage(context.text().historyLine(language, entry, now));
         }
-    }
-
-    private Component line(String language, Punishment entry, Instant now) {
-        PunishmentText text = context.text();
-        return context.messages().render(language, MessageKey.PUNISH_HISTORY_LINE,
-                Placeholder.unparsed("id", Long.toString(entry.id())),
-                Placeholder.unparsed("date", PunishmentText.date(entry.createdAt())),
-                Placeholder.component("type", text.type(language, entry.type())),
-                Placeholder.component("scope", text.scope(language, entry.scope())),
-                Placeholder.component("duration", text.length(language, entry)),
-                Placeholder.unparsed("reason", entry.reason()),
-                Placeholder.unparsed("issuer", entry.issuer().name()),
-                Placeholder.component("status", status(language, entry, now)));
-    }
-
-    private Component status(String language, Punishment entry, Instant now) {
-        if (entry.isRevoked()) {
-            return context.messages().render(language, MessageKey.PUNISH_STATUS_REVOKED,
-                    Placeholder.unparsed("issuer", entry.revocation().by().name()));
-        }
-        if (!entry.type().isLasting()) {
-            return context.messages().render(language, MessageKey.PUNISH_STATUS_DONE);
-        }
-        return context.messages().render(language,
-                entry.isActiveAt(now) ? MessageKey.PUNISH_STATUS_ACTIVE : MessageKey.PUNISH_STATUS_EXPIRED);
     }
 }

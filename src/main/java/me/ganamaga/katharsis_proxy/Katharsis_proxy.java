@@ -46,6 +46,8 @@ import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
 import me.ganamaga.katharsis_proxy.discord.DiscordInboundChat;
 import me.ganamaga.katharsis_proxy.discord.DiscordModerationAlert;
+import me.ganamaga.katharsis_proxy.discord.DiscordPunishCommands;
+import me.ganamaga.katharsis_proxy.discord.DiscordPunishmentLog;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
 import me.ganamaga.katharsis_proxy.link.AccountLinkService;
@@ -68,6 +70,9 @@ import me.ganamaga.katharsis_proxy.motd.MotdPingListener;
 import me.ganamaga.katharsis_proxy.motd.generator.BannerGenerator;
 import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
 import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
+import me.ganamaga.katharsis_proxy.permission.LuckPermsLookup;
+import me.ganamaga.katharsis_proxy.permission.OnlinePermissionLookup;
+import me.ganamaga.katharsis_proxy.permission.PermissionLookup;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import me.ganamaga.katharsis_proxy.punish.ActivePunishments;
@@ -76,7 +81,7 @@ import me.ganamaga.katharsis_proxy.punish.AutoWarn;
 import me.ganamaga.katharsis_proxy.punish.IpAddresses;
 import me.ganamaga.katharsis_proxy.punish.JoinInspector;
 import me.ganamaga.katharsis_proxy.punish.MuteEnforcer;
-import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
+import me.ganamaga.katharsis_proxy.punish.PermissionHierarchy;
 import me.ganamaga.katharsis_proxy.punish.PunishmentService;
 import me.ganamaga.katharsis_proxy.punish.PunishmentText;
 import me.ganamaga.katharsis_proxy.punish.ScopeResolver;
@@ -101,6 +106,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -124,6 +130,9 @@ public class Katharsis_proxy {
 
     /** LimboAPI's plugin id, which hosts the login void. */
     public static final String LIMBOAPI_ID = "limboapi";
+
+    /** LuckPerms' plugin id; optional, see velocity-plugin.json. */
+    public static final String LUCKPERMS_ID = "luckperms";
 
     /**
      * Passwords checked at once. Each Argon2 hash holds its configured memory
@@ -172,6 +181,7 @@ public class Katharsis_proxy {
     private PunishmentService punishmentService;
     private MuteEnforcer muteEnforcer;
     private AutoWarn autoWarn;
+    private PermissionLookup permissionLookup;
     private SessionRecorder sessionRecorder;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
@@ -351,8 +361,9 @@ public class Katharsis_proxy {
                 .map(IpAddresses::parseLiteral)
                 .flatMap(Optional::stream)
                 .collect(Collectors.toUnmodifiableSet());
+        permissionLookup = permissionLookup();
         punishmentService = new PunishmentService(logger, punishments, new ActivePunishments(),
-                new OnlineHierarchy(proxy), trusted::contains, clock);
+                new PermissionHierarchy(permissionLookup), trusted::contains, clock);
         PunishmentText text = new PunishmentText(messages,
                 () -> configManager.config().punishments().appealUrl());
         ScopeResolver scopes = new ScopeResolver(config.serverGroups());
@@ -364,6 +375,9 @@ public class Katharsis_proxy {
         punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock, serverBans));
         StaffNotifier staff = new StaffNotifier(proxy, text);
         punishmentService.addObserver(staff);
+        punishmentService.addObserver(new DiscordPunishmentLog(logger, discordBot,
+                () -> configManager.config().punishments(),
+                () -> configManager.config().moderation().staffChannelId()));
         muteEnforcer = new MuteEnforcer(proxy, logger, punishmentService, scopes, text,
                 () -> configManager.config().punishments());
         punishmentService.addObserver(muteEnforcer);
@@ -397,6 +411,14 @@ public class Katharsis_proxy {
 
         PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
                 scopes, text, () -> configManager.config().punishments(), companions, templates, escalation);
+        DiscordPunishCommands discordCommands = new DiscordPunishCommands(logger, discordBot, messages,
+                () -> configManager.config().discord(), () -> configManager.config().punishments(), accountLinks,
+                permissionLookup, new DiscordPunishCommands.Punishments(punishmentService, targets, scopes, templates,
+                text, this::serverNames, uuid -> proxy.getPlayer(uuid).isPresent()));
+        if (discordCommands.register()) {
+            logger.info("Staff can punish from Discord with /punish.");
+        }
+
         registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
                 IssueCommand.Variant.PERMANENT));
         registerStaffCommand("tempban", new IssueCommand(context, "tempban", PunishmentType.BAN,
@@ -428,7 +450,21 @@ public class Katharsis_proxy {
                 config.automod().enabled() ? "on" : "off");
     }
 
-    private List<String> serverNames() {
+    /**
+     * LuckPerms if it is installed, which can answer for offline players and
+     * knows staff weights; otherwise only players online can be asked about.
+     */
+    private PermissionLookup permissionLookup() {
+        if (proxy.getPluginManager().isLoaded(LUCKPERMS_ID)) {
+            logger.info("Using LuckPerms for the permissions and ranks of offline players.");
+            return new LuckPermsLookup(logger);
+        }
+        logger.warn("LuckPerms is not installed: the permissions of offline players cannot be checked, so they "
+                + "are never exempt and have no rank, and Discord staff must be online in game.");
+        return new OnlinePermissionLookup(proxy);
+    }
+
+    private Collection<String> serverNames() {
         return proxy.getAllServers().stream().map(server -> server.getServerInfo().getName()).toList();
     }
 

@@ -2,7 +2,6 @@ package me.ganamaga.katharsis_proxy.command.punish;
 
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
-import me.ganamaga.katharsis_proxy.entity.Punishment;
 import me.ganamaga.katharsis_proxy.entity.PunishmentScope;
 import me.ganamaga.katharsis_proxy.entity.PunishmentType;
 import me.ganamaga.katharsis_proxy.i18n.MessageKey;
@@ -168,33 +167,15 @@ public final class IssueCommand extends StaffCommand {
                 args.force(), null);
         IssueResult result = context.service().issue(request);
         String language = language(source);
-        switch (result) {
-            case IssueResult.Issued issued -> {
-                Punishment punishment = issued.punishment();
-                send(source, MessageKey.PUNISH_ISSUED,
-                        Placeholder.unparsed("player", target.name()),
-                        Placeholder.component("type", context.text().type(language, given)),
-                        Placeholder.component("scope", context.text().scope(language, punishment.scope())),
-                        Placeholder.component("duration", context.text().length(language, punishment)),
-                        Placeholder.unparsed("id", Long.toString(punishment.id())));
-                if (issued.addressSkipped()) {
-                    send(source, MessageKey.PUNISH_ADDRESS_SKIPPED, Placeholder.unparsed("player", target.name()));
-                }
-                if (given == PunishmentType.MUTE) {
-                    warnWithoutCompanion(source, target);
-                }
+        source.sendMessage(context.messages().prefix(language)
+                .append(context.text().issueResult(language, result, target.name(), given)));
+        if (result instanceof IssueResult.Issued issued) {
+            if (issued.addressSkipped()) {
+                send(source, MessageKey.PUNISH_ADDRESS_SKIPPED, Placeholder.unparsed("player", target.name()));
             }
-            case IssueResult.AlreadyActive already -> send(source, MessageKey.PUNISH_ALREADY_ACTIVE,
-                    Placeholder.unparsed("player", target.name()),
-                    Placeholder.component("type", context.text().type(language, given)),
-                    Placeholder.unparsed("id", Long.toString(already.existing().id())));
-            case IssueResult.Exempt ignored ->
-                    send(source, MessageKey.PUNISH_TARGET_EXEMPT, Placeholder.unparsed("player", target.name()));
-            case IssueResult.Outranked ignored ->
-                    send(source, MessageKey.PUNISH_TARGET_OUTRANKS, Placeholder.unparsed("player", target.name()));
-            case IssueResult.NoAddress ignored ->
-                    send(source, MessageKey.PUNISH_NO_ADDRESS, Placeholder.unparsed("player", target.name()));
-            case IssueResult.Unavailable ignored -> send(source, MessageKey.PUNISH_UNAVAILABLE);
+            if (given == PunishmentType.MUTE) {
+                warnWithoutCompanion(source, target);
+            }
         }
     }
 

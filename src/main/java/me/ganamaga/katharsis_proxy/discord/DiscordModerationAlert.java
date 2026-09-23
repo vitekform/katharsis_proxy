@@ -119,7 +119,7 @@ public final class DiscordModerationAlert implements ModerationAlerts {
      * surrogate pair, and never leaving a backslash that would escape the
      * ellipsis instead of the character it was added for.
      */
-    private static String cut(String text) {
+    static String cut(String text) {
         if (text.isEmpty()) {
             // Discord rejects an empty field value outright.
             return "—";

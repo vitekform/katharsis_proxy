@@ -11,6 +11,10 @@
     {
       "id": "limboapi",
       "optional": true
+    },
+    {
+      "id": "luckperms",
+      "optional": true
     }
   ]
 }

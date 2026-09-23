@@ -62,14 +62,8 @@ public final class CheckCommand extends StaffCommand {
             return;
         }
         Instant now = context.service().clock().instant();
-        PunishmentText text = context.text();
         for (Punishment punishment : active) {
-            source.sendMessage(context.messages().render(language, MessageKey.PUNISH_CHECK_ACTIVE,
-                    Placeholder.component("type", text.type(language, punishment.type())),
-                    Placeholder.component("scope", text.scope(language, punishment.scope())),
-                    Placeholder.component("remaining", text.remaining(language, punishment, now)),
-                    Placeholder.unparsed("reason", punishment.reason()),
-                    Placeholder.unparsed("id", Long.toString(punishment.id()))));
+            source.sendMessage(context.text().activeLine(language, punishment, now));
         }
     }
 
