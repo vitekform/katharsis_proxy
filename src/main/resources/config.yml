@@ -240,9 +240,14 @@ moderation:
     model: omni-moderation-latest
     url: https://api.openai.com/v1/moderations
 
-    # Longest to wait for an answer, in milliseconds. Chat is not relayed until
-    # it comes, so keep this short.
-    timeout-ms: 3000
+    # Longest to wait for an answer, in milliseconds. The message is not
+    # relayed to Discord or stored until the answer comes, so a large value
+    # delays those; it does not delay what players already saw in game.
+    #
+    # Generous on purpose. Real calls take well over a second, and a timeout is
+    # treated as a fault: the message is held back as "unavailable" and its
+    # author is asked to try again. Waiting is nearly always better than that.
+    timeout-ms: 30000
 
     # The quota on your key. The proxy counts against these itself and stops
     # sending before OpenAI starts refusing, so the day's requests are spent on
@@ -275,6 +280,51 @@ moderation:
     # holds them back, because that is a fault to fix rather than a state to
     # live in. Held-back messages of that kind are stored as "unavailable" and
     # are not a finding against the player.
+
+# Logging in. Players without a Mojang account wait in an empty void, where
+# only /login and /register work, until they log in; nothing else is reachable
+# before that, not even the first server. Passwords are hashed with Argon2id.
+#
+# The void is provided by LimboAPI (https://github.com/Elytrium/LimboAPI),
+# which must be installed on this proxy. Without it, and whenever the database
+# is down, players without a Mojang account are refused at the door.
+auth:
+  # While this is false anyone can join under any name, which on an
+  # offline-mode proxy means anyone can play as anyone.
+  enabled: true
+
+  # Kick a player who has not logged in within this many seconds.
+  login-timeout-seconds: 60
+
+  # Kick a player after this many wrong passwords in one connection.
+  max-attempts: 3
+
+  # Length limits for new passwords, in characters.
+  min-password-length: 8
+  max-password-length: 64
+
+  # Names held by a Mojang account are sent through Mojang's own login and
+  # never asked for a password; the name is claimed for that account the first
+  # time. Someone using such a name without owning the account fails Mojang's
+  # login and cannot join under it. A name already registered with a password
+  # stays a password account.
+  premium-skip: true
+
+  # Where a name is looked up to tell whether a Mojang account holds it, and
+  # how long to wait, in milliseconds. If Mojang cannot be asked, the player is
+  # treated as having no Mojang account.
+  mojang-url: https://api.mojang.com/users/profiles/minecraft/
+  mojang-timeout-ms: 5000
+
+  # Cost of hashing each password. The defaults are OWASP's recommended
+  # minimum for Argon2id. Raising them makes stolen hashes harder to crack and
+  # every login slower; existing passwords are rehashed with the new settings
+  # the next time their owner logs in.
+  argon2:
+    # Memory per hash, in KiB.
+    memory-kib: 19456
+    iterations: 2
+    parallelism: 1
 
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.

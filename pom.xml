@@ -20,6 +20,8 @@
         <postgresql.version>42.7.11</postgresql.version>
         <h2.version>2.5.250</h2.version>
         <discord4j.version>3.3.3</discord4j.version>
+        <limboapi.version>1.1.27</limboapi.version>
+        <password4j.version>1.8.4</password4j.version>
         <junit.version>5.14.4</junit.version>
         <slf4j.version>2.0.17</slf4j.version>
         <surefire.version>3.6.0</surefire.version>
@@ -185,6 +187,7 @@
                                     <include>moe.kyokobot.libdave:*</include>
                                     <include>dev.arbjerg:lava-common</include>
                                     <include>commons-io:commons-io</include>
+                                    <include>com.password4j:password4j</include>
                                 </includes>
                             </artifactSet>
                             <!-- Velocity plugins can see each other's classes, so the JDBC
@@ -245,6 +248,10 @@
                                 <relocation>
                                     <pattern>org.apache.commons.io</pattern>
                                     <shadedPattern>${shade.relocation.base}.commons.io</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.password4j</pattern>
+                                    <shadedPattern>${shade.relocation.base}.password4j</shadedPattern>
                                 </relocation>
                                 <!-- The shade plugin does not relocate the Java-version-specific
                                      copies under META-INF/versions/<n>/, so those are moved by
@@ -370,6 +377,10 @@
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
+        <repository>
+            <id>elytrium-repo</id>
+            <url>https://maven.elytrium.net/repo/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -385,6 +396,15 @@
             <groupId>org.spongepowered</groupId>
             <artifactId>configurate-yaml</artifactId>
             <version>${configurate.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- A separate proxy plugin that hosts the virtual world players log in
+             from. Optional at runtime: see velocity-plugin.json. -->
+        <dependency>
+            <groupId>net.elytrium.limboapi</groupId>
+            <artifactId>api</artifactId>
+            <version>${limboapi.version}</version>
             <scope>provided</scope>
         </dependency>
 
@@ -443,6 +463,20 @@
                 <exclusion>
                     <groupId>io.netty</groupId>
                     <artifactId>netty-codec-native-quic</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Argon2id password hashing, in pure Java. -->
+        <dependency>
+            <groupId>com.password4j</groupId>
+            <artifactId>password4j</artifactId>
+            <version>${password4j.version}</version>
+            <exclusions>
+                <!-- Provided by the proxy. -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

@@ -76,3 +76,34 @@ discord-chat-hidden: "<gray>Zprávy z Discordu jsou teď skryté. Změnit to mů
 # nikdy neuvidí.
 chat-blocked: "<red>Tvoje zpráva nebyla odeslána: porušila pravidla chatu.</red>"
 chat-unchecked: "<gray>Tvoji zprávu se teď nepodařilo zkontrolovat, a tak nebyla odeslána. Zkus to prosím znovu.</gray>"
+
+# Přihlášení. Hráči bez účtu Mojang čekají v prázdné prázdnotě, dokud se
+# nepřihlásí nebo nezaregistrují; nic jiného do té doby nefunguje. Důvody
+# vyhození se zobrazují bez prefixu.
+auth-title: "<gold>Přihlášení"
+auth-subtitle-login: "<gray>/login HESLO"
+auth-subtitle-register: "<gray>/register HESLO HESLO"
+auth-prompt-login: "<gray>Vítej zpět! Přihlas se příkazem <gold>/login HESLO</gold>.</gray>"
+auth-prompt-register: "<gray>Vítej! Zvol si heslo příkazem <gold>/register HESLO HESLO</gold>.</gray>"
+auth-only-auth-commands: "<red>Dokud se nepřihlásíš, fungují jen <gold>/login</gold> a <gold>/register</gold>.</red>"
+auth-login-usage: "<red>Použití: <gold>/login HESLO</gold></red>"
+auth-register-usage: "<red>Použití: <gold>/register HESLO HESLO</gold></red>"
+auth-not-registered: "<red>Toto jméno ještě nemá účet. Použij <gold>/register HESLO HESLO</gold>.</red>"
+auth-already-registered: "<red>Toto jméno je už zaregistrované. Použij <gold>/login HESLO</gold>.</red>"
+# <attempts>
+auth-wrong-password: "<red>Špatné heslo. Zbývá pokusů: <gold><attempts></gold>.</red>"
+# <min>
+auth-password-too-short: "<red>Heslo musí mít alespoň <gold><min></gold> znaků.</red>"
+# <max>
+auth-password-too-long: "<red>Heslo může mít nejvýše <gold><max></gold> znaků.</red>"
+auth-password-mismatch: "<red>Hesla se neshodují.</red>"
+auth-password-is-username: "<red>Heslo nemůže být tvoje jméno.</red>"
+auth-busy: "<gray>Ještě ověřuji tvůj předchozí pokus, počkej prosím.</gray>"
+auth-logged-in: "<green>Přihlášeno. Vítej zpět!</green>"
+auth-registered: "<green>Zaregistrováno a přihlášeno. Heslo si zapamatuj: nedá se obnovit.</green>"
+auth-already-logged-in: "<red>Už jsi přihlášen.</red>"
+auth-kick-attempts: "<red>Příliš mnoho špatných hesel.</red>"
+auth-kick-timeout: "<red>Nepřihlásil ses včas.</red>"
+# <name>
+auth-kick-wrong-case: "<red>Tento účet je zaregistrovaný jako <gold><name></gold>. Připoj se přesně s tímto jménem.</red>"
+auth-unavailable: "<red>Přihlášení teď není dostupné. Zkus to prosím později.</red>"

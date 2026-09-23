@@ -21,8 +21,12 @@ public class OpenAiConfig {
 
     private String url = "https://api.openai.com/v1/moderations";
 
-    /** Longer than this and the message is held back rather than waited on. */
-    private long timeoutMs = 3_000L;
+    /**
+     * Longer than this and the message is held back rather than waited on.
+     * Generous, because the model answering slowly is not a fault: a real call
+     * takes well over a second, and timing one out costs a held-back message.
+     */
+    private long timeoutMs = 30_000L;
 
     /** Quota for the key. The defaults are the free moderation tier's. */
     private int requestsPerMinute = 500;

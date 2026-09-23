@@ -109,6 +109,13 @@ Two failures look alike and are treated as opposites on purpose.
 | Out of quota, counted here or a 429 from OpenAI       | **through** | The limit is reached in ordinary use; chat must not stop working every evening. |
 | Timeout, connection refused, refused key, 5xx, unreadable answer | **held back** | A fault to fix rather than a state to live in, and an unchecked message is what this exists to prevent. |
 
+`moderation.openai.timeout-ms` is 30000 by default. A real call takes well over a
+second, and a timeout costs a held-back message and a player asked to try again,
+so waiting is nearly always the better trade. What waits is the Discord relay and
+the database write — players in game have already seen the message by then. The
+connection itself still has 5 seconds, so an unreachable network fails fast
+rather than holding a message for the full timeout.
+
 Held-back messages of the second kind are recorded with the source
 `unavailable`. That says no more than that nothing could judge them: they are
 **not** a finding against the player, they are not reported to the staff
@@ -128,7 +135,7 @@ from a message the model simply did not object to. That goes to
 
 ```
 2026-09-22 18:04:05.678 --- Katharsis started ---
-2026-09-22 18:07:12.004 openai call=1 request model=omni-moderation-latest url=https://api.openai.com/v1/moderations chars=13 tokens=13 timeout=3000ms text="you are r4c1st"
+2026-09-22 18:07:12.004 openai call=1 request model=omni-moderation-latest url=https://api.openai.com/v1/moderations chars=13 tokens=13 timeout=30000ms text="you are r4c1st"
 2026-09-22 18:07:12.269 openai call=1 answer status=200 in=265ms outcome=FLAGGED categories=[harassment, hate] detail= body={"id":"modr-…","results":[{"flagged":true,…}]}
 2026-09-22 18:09:44.117 openai call=2 skipped model=omni-moderation-latest chars=31 tokens=19 remaining-today=0 reason=out-of-quota
 2026-09-22 18:11:02.882 openai call=3 answer status=401 in=88ms outcome=ERROR body={"error":{"message":"Incorrect API key provided"…

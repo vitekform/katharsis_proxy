@@ -12,6 +12,7 @@ public class KatharsisConfig {
     private MotdConfig motd = new MotdConfig();
     private DiscordConfig discord = new DiscordConfig();
     private ModerationConfig moderation = new ModerationConfig();
+    private AuthConfig auth = new AuthConfig();
     private String defaultLanguage = "en_US";
 
     /**
@@ -35,6 +36,10 @@ public class KatharsisConfig {
 
     public ModerationConfig moderation() {
         return moderation;
+    }
+
+    public AuthConfig auth() {
+        return auth == null ? new AuthConfig() : auth;
     }
 
     public String defaultLanguage() {

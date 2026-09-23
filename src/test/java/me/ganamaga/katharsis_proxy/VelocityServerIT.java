@@ -100,6 +100,11 @@ class VelocityServerIT {
         assertLogged(log, "Caching account links for 10 minute(s) after disconnect.");
         assertLogged(log, "The Discord bot is off.");
 
+        // No LimboAPI here: the plugin must still load, and fail closed.
+        assertLogged(log, "LimboAPI is not installed, so players without a Mojang account have nowhere to log in");
+        assertLogged(log, "Names held by a Mojang account are sent through Mojang's login and skip the password.");
+        assertLogged(log, "Registered /login and /register.");
+
         // Proves the shade relocation is what actually runs: an unrelocated
         // build would log com.zaxxer.hikari instead.
         assertLogged(log, "me.ganamaga.katharsis_proxy.libs.hikari");

@@ -9,13 +9,22 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.annotation.DataDirectory;
 import com.velocitypowered.api.proxy.ProxyServer;
+import me.ganamaga.katharsis_proxy.auth.AuthGateListener;
+import me.ganamaga.katharsis_proxy.auth.AuthLimbo;
+import me.ganamaga.katharsis_proxy.auth.AuthService;
+import me.ganamaga.katharsis_proxy.auth.MojangProfiles;
+import me.ganamaga.katharsis_proxy.auth.PasswordHasher;
+import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
+import me.ganamaga.katharsis_proxy.command.AuthCommand;
 import me.ganamaga.katharsis_proxy.command.LinkCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
+import me.ganamaga.katharsis_proxy.config.AuthConfig;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
 import me.ganamaga.katharsis_proxy.database.AccountLinkRepository;
+import me.ganamaga.katharsis_proxy.database.AuthAccountRepository;
 import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
@@ -55,11 +64,16 @@ import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Katharsis_proxy {
 
@@ -70,6 +84,18 @@ public class Katharsis_proxy {
     /** How often expired language cache entries are reclaimed. */
     // You are allowed to guess how long is 1 :)
     private static final long CACHE_SWEEP_MINUTES = 1L;
+
+    /** LimboAPI's plugin id, which hosts the login void. */
+    public static final String LIMBOAPI_ID = "limboapi";
+
+    /**
+     * Passwords checked at once. Each Argon2 hash holds its configured memory
+     * while it runs, so this bounds what a crowd of logins can take.
+     */
+    private static final int AUTH_THREADS = 2;
+
+    /** Logins waiting for a thread; past this, players are asked to try again. */
+    private static final int AUTH_QUEUE = 64;
 
     // fuck you velocity, provide normal color API for once
     public static final String RESET  = "\u001B[0m";
@@ -103,12 +129,19 @@ public class Katharsis_proxy {
     private PlayerRepository players;
     private ChatMessageRepository chatMessages;
     private AccountLinkRepository accountLinkRepository;
+    private AuthAccountRepository authAccounts;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
     private DiscordAccountLinking discordLinking;
     private LinkCommand linkCommand;
     private CompanionRegistry companions;
+
+    /** Null while logging in is off. */
+    private ExecutorService authExecutor;
+
+    /** Null unless LimboAPI is installed and logging in is on. */
+    private AuthLimbo authLimbo;
 
     /** Null while chat moderation is off. */
     private ChatModerator chatModerator;
@@ -123,6 +156,7 @@ public class Katharsis_proxy {
         // Before the commands and plugin messaging, which hand work to the bot.
         startDiscordBot();
         setUpAccountLinking();
+        setUpAuth();
         // Before the chat channel, which hands every reported message to it.
         setUpModeration();
         registerCommands();
@@ -142,6 +176,12 @@ public class Katharsis_proxy {
         // Before the database closes, in case queued tasks still read from it.
         if (discordBot != null) {
             discordBot.stop();
+        }
+        if (authLimbo != null) {
+            authLimbo.dispose();
+        }
+        if (authExecutor != null) {
+            authExecutor.shutdownNow();
         }
         if (database != null) {
             database.close();
@@ -217,11 +257,13 @@ public class Katharsis_proxy {
         players = new PlayerRepository(database);
         chatMessages = new ChatMessageRepository(database);
         accountLinkRepository = new AccountLinkRepository(database);
+        authAccounts = new AuthAccountRepository(database);
         try {
             database.start(configManager.config().database());
             players.createTable();
             chatMessages.createTable();
             accountLinkRepository.createTables();
+            authAccounts.createTable();
         } catch (SQLException e) {
             logger.error(RED + "Could not open the database; player data will not be stored.", e);
             database.close();
@@ -266,6 +308,58 @@ public class Katharsis_proxy {
             proxy.getEventManager().register(this, new AccountLinkJoinListener(logger, accountLinks));
         }
         discordLinking.register();
+    }
+
+    /**
+     * Makes players without a Mojang account log in with a password, in an
+     * empty LimboAPI world, before they reach any server. Fails closed: without
+     * LimboAPI, or without the database, such players are refused at the door
+     * rather than let in unchecked.
+     */
+    private void setUpAuth() {
+        AuthConfig config = configManager.config().auth();
+        if (!config.enabled()) {
+            logger.warn(RED + "auth.enabled is false: on an offline-mode proxy anyone can join under any name.");
+            return;
+        }
+
+        AtomicInteger threads = new AtomicInteger();
+        authExecutor = new ThreadPoolExecutor(AUTH_THREADS, AUTH_THREADS, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(AUTH_QUEUE), runnable -> {
+                    Thread thread = new Thread(runnable, "katharsis-auth-" + threads.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                });
+        AuthService auth = new AuthService(logger, database, authAccounts,
+                new PasswordHasher(config.argon2()),
+                new PasswordPolicy(config.minPasswordLength(), config.maxPasswordLength()),
+                new MojangProfiles(logger, config.mojangUrl(), Duration.ofMillis(config.mojangTimeoutMs())),
+                config.premiumSkip(), Clock.systemUTC());
+
+        // Asked of Velocity rather than of AuthLimbo, which cannot even be loaded without LimboAPI.
+        boolean limboInstalled = proxy.getPluginManager().isLoaded(LIMBOAPI_ID);
+        if (limboInstalled) {
+            authLimbo = new AuthLimbo(this, proxy, logger, auth, messages, config, authExecutor);
+            authLimbo.start();
+            logger.info(GREEN + "Players without a Mojang account log in from an empty void.");
+        } else {
+            logger.warn(RED + "LimboAPI is not installed, so players without a Mojang account have nowhere to "
+                    + "log in and will be refused. Install it from https://github.com/Elytrium/LimboAPI");
+        }
+        proxy.getEventManager().register(this, new AuthGateListener(proxy, logger, auth, messages, limboInstalled));
+
+        if (proxy.getConfiguration().isOnlineMode()) {
+            logger.info("The proxy is in online mode, so Mojang logs everyone in and no password is asked for.");
+        } else if (config.premiumSkip()) {
+            logger.info("Names held by a Mojang account are sent through Mojang's login and skip the password.");
+        }
+
+        CommandManager commandManager = proxy.getCommandManager();
+        commandManager.register(commandManager.metaBuilder(AuthCommand.NAMES.getFirst())
+                .aliases(AuthCommand.NAMES.subList(1, AuthCommand.NAMES.size()).toArray(String[]::new))
+                .plugin(this)
+                .build(), new AuthCommand(messages));
+        logger.info("Registered /login and /register.");
     }
 
     /**

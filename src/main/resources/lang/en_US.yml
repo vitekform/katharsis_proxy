@@ -78,3 +78,34 @@ discord-chat-hidden: "<gray>Messages from Discord are now hidden. Change this an
 # everyone else simply never sees it.
 chat-blocked: "<red>Your message was not sent: it broke the chat rules.</red>"
 chat-unchecked: "<gray>Your message could not be checked right now and was not sent. Please try again.</gray>"
+
+# Login. Players without a Mojang account wait in an empty void until they
+# log in or register; nothing else works until they do. Kick reasons are
+# shown without the prefix.
+auth-title: "<gold>Login"
+auth-subtitle-login: "<gray>/login PASSWORD"
+auth-subtitle-register: "<gray>/register PASSWORD PASSWORD"
+auth-prompt-login: "<gray>Welcome back! Log in with <gold>/login PASSWORD</gold>.</gray>"
+auth-prompt-register: "<gray>Welcome! Choose a password with <gold>/register PASSWORD PASSWORD</gold>.</gray>"
+auth-only-auth-commands: "<red>Only <gold>/login</gold> and <gold>/register</gold> work until you log in.</red>"
+auth-login-usage: "<red>Usage: <gold>/login PASSWORD</gold></red>"
+auth-register-usage: "<red>Usage: <gold>/register PASSWORD PASSWORD</gold></red>"
+auth-not-registered: "<red>This name has no account yet. Use <gold>/register PASSWORD PASSWORD</gold>.</red>"
+auth-already-registered: "<red>This name is already registered. Use <gold>/login PASSWORD</gold>.</red>"
+# <attempts>
+auth-wrong-password: "<red>Wrong password. <gold><attempts></gold> attempt(s) left.</red>"
+# <min>
+auth-password-too-short: "<red>Your password must be at least <gold><min></gold> characters long.</red>"
+# <max>
+auth-password-too-long: "<red>Your password must be at most <gold><max></gold> characters long.</red>"
+auth-password-mismatch: "<red>The two passwords do not match.</red>"
+auth-password-is-username: "<red>Your password cannot be your name.</red>"
+auth-busy: "<gray>Still checking your last attempt, please wait.</gray>"
+auth-logged-in: "<green>Logged in. Welcome back!</green>"
+auth-registered: "<green>Registered and logged in. Remember your password: it cannot be recovered.</green>"
+auth-already-logged-in: "<red>You are already logged in.</red>"
+auth-kick-attempts: "<red>Too many wrong passwords.</red>"
+auth-kick-timeout: "<red>You did not log in in time.</red>"
+# <name>
+auth-kick-wrong-case: "<red>This account is registered as <gold><name></gold>. Join with exactly that name.</red>"
+auth-unavailable: "<red>Logging in is unavailable right now. Please try again later.</red>"

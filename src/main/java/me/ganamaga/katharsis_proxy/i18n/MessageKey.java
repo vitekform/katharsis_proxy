@@ -151,7 +151,79 @@ public enum MessageKey {
      * rather than passed on unchecked. Says to try again, since nothing is
      * wrong with the message itself. Placeholders: none.
      */
-    CHAT_UNCHECKED("chat-unchecked");
+    CHAT_UNCHECKED("chat-unchecked"),
+
+    /** Big title over the login void. Placeholders: none. */
+    AUTH_TITLE("auth-title"),
+
+    /** Subtitle under it for a player with a password. Placeholders: none. */
+    AUTH_SUBTITLE_LOGIN("auth-subtitle-login"),
+
+    /** Subtitle under it for a player who has yet to choose one. Placeholders: none. */
+    AUTH_SUBTITLE_REGISTER("auth-subtitle-register"),
+
+    /** In the login void, how to log in. Placeholders: none. */
+    AUTH_PROMPT_LOGIN("auth-prompt-login"),
+
+    /** In the login void, how to register. Placeholders: none. */
+    AUTH_PROMPT_REGISTER("auth-prompt-register"),
+
+    /** Anything but /login or /register before logging in. Placeholders: none. */
+    AUTH_ONLY_AUTH_COMMANDS("auth-only-auth-commands"),
+
+    /** /login without exactly one argument. Placeholders: none. */
+    AUTH_LOGIN_USAGE("auth-login-usage"),
+
+    /** /register without exactly two arguments. Placeholders: none. */
+    AUTH_REGISTER_USAGE("auth-register-usage"),
+
+    /** /login on a name nobody registered. Placeholders: none. */
+    AUTH_NOT_REGISTERED("auth-not-registered"),
+
+    /** /register on a name already registered. Placeholders: none. */
+    AUTH_ALREADY_REGISTERED("auth-already-registered"),
+
+    /** Placeholders: {@code <attempts>}, how many are left before the kick. */
+    AUTH_WRONG_PASSWORD("auth-wrong-password"),
+
+    /** Placeholders: {@code <min>}. */
+    AUTH_PASSWORD_TOO_SHORT("auth-password-too-short"),
+
+    /** Placeholders: {@code <max>}. */
+    AUTH_PASSWORD_TOO_LONG("auth-password-too-long"),
+
+    /** The two passwords given to /register differ. Placeholders: none. */
+    AUTH_PASSWORD_MISMATCH("auth-password-mismatch"),
+
+    /** The password is the player's name. Placeholders: none. */
+    AUTH_PASSWORD_IS_USERNAME("auth-password-is-username"),
+
+    /** A command arrived while the previous one is still being checked. Placeholders: none. */
+    AUTH_BUSY("auth-busy"),
+
+    /** Placeholders: none. */
+    AUTH_LOGGED_IN("auth-logged-in"),
+
+    /** Placeholders: none. */
+    AUTH_REGISTERED("auth-registered"),
+
+    /** /login or /register once already logged in. Placeholders: none. */
+    AUTH_ALREADY_LOGGED_IN("auth-already-logged-in"),
+
+    /** Kick reason: too many wrong passwords. Placeholders: none. */
+    AUTH_KICK_ATTEMPTS("auth-kick-attempts"),
+
+    /** Kick reason: did not log in in time. Placeholders: none. */
+    AUTH_KICK_TIMEOUT("auth-kick-timeout"),
+
+    /**
+     * Kick reason: the name is registered in another case. Placeholders:
+     * {@code <name>}, the registered spelling.
+     */
+    AUTH_KICK_WRONG_CASE("auth-kick-wrong-case"),
+
+    /** Kick reason, or reply: accounts cannot be checked right now. Placeholders: none. */
+    AUTH_UNAVAILABLE("auth-unavailable");
 
     private final String key;
 
