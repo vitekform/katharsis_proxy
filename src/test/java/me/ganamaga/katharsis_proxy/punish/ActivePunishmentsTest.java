@@ -94,4 +94,34 @@ class ActivePunishmentsTest {
                 "x", null, IssuerRef.console(), false, null, NOW, null, null);
         assertTrue(active.added(kick).isEmpty());
     }
+
+    @Test
+    @DisplayName("an exempt player is not held by a new ban on an address they share")
+    void exemptIgnoresAddress() {
+        UUID staff = UUID.randomUUID();
+        active.put(staff, new ActivePunishments.Session(connection, "10.0.0.1", List.of(), 0, true));
+
+        assertTrue(active.added(mute(1, UUID.randomUUID(), "10.0.0.1", null)).isEmpty());
+        Punishment own = mute(2, staff, "10.0.0.1", null);
+        assertEquals(List.of(staff), active.added(own), "their own account still counts");
+    }
+
+    @Test
+    @DisplayName("banOn finds bans covering the server, directly or through a group")
+    void banOn() {
+        ScopeResolver scopes = new ScopeResolver(Map.of("survival", List.of("lifesteal", "lifesteal2")));
+        UUID target = UUID.randomUUID();
+        Punishment group = new Punishment(1, PunishmentType.BAN, target, "Target", null,
+                PunishmentScope.group("survival"), "x", null, IssuerRef.console(), false, null,
+                NOW.minusSeconds(60), NOW.plusSeconds(60), null);
+        Punishment server = new Punishment(2, PunishmentType.BAN, target, "Target", null,
+                PunishmentScope.server("lifesteal"), "x", null, IssuerRef.console(), false, null,
+                NOW.minusSeconds(60), null, null);
+        active.put(target, new ActivePunishments.Session(connection, null, List.of(group, server), 0));
+
+        assertEquals(server, active.banOn(target, "LifeSteal", scopes, NOW).orElseThrow(), "the longest wins");
+        assertEquals(group, active.banOn(target, "lifesteal2", scopes, NOW).orElseThrow());
+        assertTrue(active.banOn(target, "lobby", scopes, NOW).isEmpty());
+        assertTrue(active.banOn(UUID.randomUUID(), "lifesteal", scopes, NOW).isEmpty());
+    }
 }

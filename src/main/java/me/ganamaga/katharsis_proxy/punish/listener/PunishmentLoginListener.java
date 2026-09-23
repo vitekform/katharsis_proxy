@@ -179,7 +179,7 @@ public final class PunishmentLoginListener {
         }
         Optional<Punishment> ban = PunishmentService.globalBan(active, uuid, false);
         if (ban.isEmpty()) {
-            service.active().put(uuid, new ActivePunishments.Session(player, ip, active, generation));
+            service.active().put(uuid, new ActivePunishments.Session(player, ip, active, generation, exempt));
         }
         return ban;
     }

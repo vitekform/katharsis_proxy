@@ -73,11 +73,13 @@ import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
 import me.ganamaga.katharsis_proxy.punish.PunishmentService;
 import me.ganamaga.katharsis_proxy.punish.PunishmentText;
 import me.ganamaga.katharsis_proxy.punish.ScopeResolver;
+import me.ganamaga.katharsis_proxy.punish.ServerBans;
 import me.ganamaga.katharsis_proxy.punish.StaffNotifier;
 import me.ganamaga.katharsis_proxy.punish.Target;
 import me.ganamaga.katharsis_proxy.punish.TargetResolver;
 import me.ganamaga.katharsis_proxy.punish.VelocityEnforcer;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentLoginListener;
+import me.ganamaga.katharsis_proxy.punish.listener.PunishmentServerListener;
 import me.ganamaga.katharsis_proxy.punish.listener.SessionRecorder;
 import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.slf4j.Logger;
@@ -337,18 +339,25 @@ public class Katharsis_proxy {
                 new OnlineHierarchy(proxy), trusted::contains, clock);
         PunishmentText text = new PunishmentText(messages,
                 () -> configManager.config().punishments().appealUrl());
-        punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock));
+        ScopeResolver scopes = new ScopeResolver(config.serverGroups());
+        config.serverGroups().forEach((group, members) -> members.stream()
+                .filter(member -> proxy.getServer(member).isEmpty())
+                .forEach(member -> logger.warn("punishments.server-groups.{} lists '{}', which is not a server "
+                        + "in velocity.toml.", group, member)));
+        ServerBans serverBans = new ServerBans(proxy, punishmentService, scopes, text);
+        punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock, serverBans));
         punishmentService.addObserver(new StaffNotifier(proxy, text));
 
         proxy.getEventManager().register(this, new PunishmentLoginListener(logger, punishmentService,
                 playerHistory, players, text, () -> configManager.config().punishments().failClosed()));
+        proxy.getEventManager().register(this, new PunishmentServerListener(logger, serverBans));
 
         TargetResolver targets = new TargetResolver(
                 name -> proxy.getPlayer(name).map(player -> new Target(player.getUniqueId(), player.getUsername(),
                         IpAddresses.of(player.getRemoteAddress()).orElse(null))),
                 playerHistory, authAccounts, !proxy.getConfiguration().isOnlineMode());
         PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
-                new ScopeResolver(config.serverGroups()), text, () -> configManager.config().punishments());
+                scopes, text, () -> configManager.config().punishments());
         registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
                 IssueCommand.Variant.PERMANENT));
         registerStaffCommand("tempban", new IssueCommand(context, "tempban", PunishmentType.BAN,

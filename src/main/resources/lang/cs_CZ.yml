@@ -155,3 +155,6 @@ punish-check-seen: "<gray>Poprvé viděn <white><first></white>, naposledy <whit
 punish-check-active: "<gray>• <red><type></red> na <scope>, zbývá <remaining>: <white><reason></white></gray> <dark_gray>#<id></dark_gray>"
 punish-check-none: "<green>Žádné aktivní tresty.</green>"
 punish-ip-hidden: "skryto"
+punish-banned-from-server: "<red>Na serveru <gold><server></gold> máš ban ještě <white><remaining></white>: <white><reason></white> <dark_gray>#<id></dark_gray></red>"
+punish-moved-to: "<gray>Místo toho jsi byl poslán na <white><server></white>.</gray>"
+punish-server-ban-screen: "<red><bold>Na serveru <server> máš ban a žádný jiný server tě nemůže přijmout.</bold></red><newline><newline><gray>Důvod: <white><reason></white><newline>Vyprší za: <white><expires></white><newline>ID banu: <white>#<id></white></gray><appeal>"

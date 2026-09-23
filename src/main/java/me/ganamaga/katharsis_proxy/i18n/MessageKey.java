@@ -361,7 +361,16 @@ public enum MessageKey {
     PUNISH_CHECK_NONE("punish-check-none"),
 
     /** Stands in for an address the viewer may not see. Placeholders: none. */
-    PUNISH_IP_HIDDEN("punish-ip-hidden");
+    PUNISH_IP_HIDDEN("punish-ip-hidden"),
+
+    /** Told to a player kept off a server by a ban there. Placeholders: {@code <server>}, {@code <reason>}, {@code <remaining>}, {@code <id>}. */
+    PUNISH_BANNED_FROM_SERVER("punish-banned-from-server"),
+
+    /** Told to a player sent elsewhere because of a server ban. Placeholders: {@code <server>}. */
+    PUNISH_MOVED_TO("punish-moved-to"),
+
+    /** Disconnect screen when bans leave a player no server to join. Placeholders: {@code <server>}, {@code <reason>}, {@code <expires>}, {@code <id>}, {@code <appeal>}. */
+    PUNISH_SERVER_BAN_SCREEN("punish-server-ban-screen");
 
     private final String key;
 

@@ -32,16 +32,22 @@ public final class ActivePunishments {
      * @param ip         the address the player joined from, or {@code null}
      * @param active     what was in force when last loaded or changed
      * @param generation {@link PunishmentService#generation()} before it was loaded
+     * @param exempt     whether the player is exempt from punishment, and so
+     *                   not held by punishments on an address they share
      */
-    public record Session(Object owner, String ip, List<Punishment> active, long generation) {
+    public record Session(Object owner, String ip, List<Punishment> active, long generation, boolean exempt) {
 
         public Session {
             Objects.requireNonNull(owner, "owner");
             active = List.copyOf(active);
         }
 
+        public Session(Object owner, String ip, List<Punishment> active, long generation) {
+            this(owner, ip, active, generation, false);
+        }
+
         Session with(List<Punishment> newActive) {
-            return new Session(owner, ip, newActive, generation);
+            return new Session(owner, ip, newActive, generation, exempt);
         }
     }
 
@@ -87,7 +93,7 @@ public final class ActivePunishments {
         }
         List<UUID> affected = new ArrayList<>();
         sessions.replaceAll((uuid, session) -> {
-            if (!holds(punishment, uuid, session.ip())) {
+            if (!holds(punishment, uuid, session.exempt() ? null : session.ip())) {
                 return session;
             }
             affected.add(uuid);
@@ -122,6 +128,16 @@ public final class ActivePunishments {
             return session.with(session.active().stream().filter(p -> p.isActiveAt(now)).toList());
         });
         return expired;
+    }
+
+    /**
+     * The ban in force against {@code uuid} on {@code server} at {@code now}
+     * that keeps them off longest, if any.
+     */
+    public Optional<Punishment> banOn(UUID uuid, String server, ScopeResolver scopes, Instant now) {
+        return active(uuid, PunishmentType.BAN, now).stream()
+                .filter(ban -> scopes.appliesTo(ban.scope(), server))
+                .max(PunishmentService.LONGEST);
     }
 
     static boolean holds(Punishment punishment, UUID uuid, String ip) {

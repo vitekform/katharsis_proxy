@@ -71,15 +71,43 @@ public final class PunishmentText {
 
     /** What a player sees when a network-wide ban turns them away. */
     public Component banScreen(String language, Punishment ban, Instant now) {
-        String url = appealUrl.get();
-        Component appeal = url.isBlank() ? Component.empty()
-                : messages.render(language, MessageKey.PUNISH_APPEAL_LINE, Placeholder.unparsed("url", url));
+        Component appeal = appeal(language);
         return messages.render(language, MessageKey.PUNISH_BAN_SCREEN,
                 Placeholder.unparsed("reason", ban.reason()),
                 Placeholder.component("expires", remaining(language, ban, now)),
                 Placeholder.unparsed("issuer", ban.issuer().name()),
                 Placeholder.unparsed("id", Long.toString(ban.id())),
                 Placeholder.component("appeal", appeal));
+    }
+
+    /** What a player sees when bans leave them no server to join. */
+    public Component serverBanScreen(String language, Punishment ban, String server, Instant now) {
+        return messages.render(language, MessageKey.PUNISH_SERVER_BAN_SCREEN,
+                Placeholder.unparsed("server", server),
+                Placeholder.unparsed("reason", ban.reason()),
+                Placeholder.component("expires", remaining(language, ban, now)),
+                Placeholder.unparsed("id", Long.toString(ban.id())),
+                Placeholder.component("appeal", appeal(language)));
+    }
+
+    /** Told in chat to a player kept off {@code server}. */
+    public Component bannedFromServer(String language, Punishment ban, String server, Instant now) {
+        return messages.prefixed(language, MessageKey.PUNISH_BANNED_FROM_SERVER,
+                Placeholder.unparsed("server", server),
+                Placeholder.unparsed("reason", ban.reason()),
+                Placeholder.component("remaining", remaining(language, ban, now)),
+                Placeholder.unparsed("id", Long.toString(ban.id())));
+    }
+
+    /** Told in chat to a player sent to {@code server} instead. */
+    public Component movedTo(String language, String server) {
+        return messages.prefixed(language, MessageKey.PUNISH_MOVED_TO, Placeholder.unparsed("server", server));
+    }
+
+    private Component appeal(String language) {
+        String url = appealUrl.get();
+        return url.isBlank() ? Component.empty()
+                : messages.render(language, MessageKey.PUNISH_APPEAL_LINE, Placeholder.unparsed("url", url));
     }
 
     public Component kickScreen(String language, Punishment kick) {
