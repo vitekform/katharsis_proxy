@@ -135,9 +135,24 @@ public final class ActivePunishments {
      * that keeps them off longest, if any.
      */
     public Optional<Punishment> banOn(UUID uuid, String server, ScopeResolver scopes, Instant now) {
-        return active(uuid, PunishmentType.BAN, now).stream()
-                .filter(ban -> scopes.appliesTo(ban.scope(), server))
+        return activeOn(uuid, PunishmentType.BAN, server, scopes, now);
+    }
+
+    /**
+     * The punishment of {@code type} in force against {@code uuid} on
+     * {@code server} at {@code now} that lasts longest, if any.
+     */
+    public Optional<Punishment> activeOn(UUID uuid, PunishmentType type, String server, ScopeResolver scopes,
+                                        Instant now) {
+        return active(uuid, type, now).stream()
+                .filter(punishment -> scopes.appliesTo(punishment.scope(), server))
                 .max(PunishmentService.LONGEST);
+    }
+
+    /** Whether {@code punishment} names {@code uuid}'s account or, unless exempt, their address. */
+    public boolean holds(Punishment punishment, UUID uuid) {
+        Session session = sessions.get(uuid);
+        return session != null && holds(punishment, uuid, session.exempt() ? null : session.ip());
     }
 
     static boolean holds(Punishment punishment, UUID uuid, String ip) {

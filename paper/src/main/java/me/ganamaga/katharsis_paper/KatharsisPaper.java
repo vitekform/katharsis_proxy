@@ -5,12 +5,15 @@ import me.ganamaga.katharsis_paper.command.SettingsCommand;
 import me.ganamaga.katharsis_paper.listener.AnnounceListener;
 import me.ganamaga.katharsis_paper.listener.ChatListener;
 import me.ganamaga.katharsis_paper.listener.LanguageMenuListener;
+import me.ganamaga.katharsis_paper.listener.MuteListener;
 import me.ganamaga.katharsis_paper.listener.SettingsMenuListener;
 import me.ganamaga.katharsis_paper.menu.LanguageMenuView;
 import me.ganamaga.katharsis_paper.menu.SettingsMenuView;
+import me.ganamaga.katharsis_paper.mute.MuteRegistry;
 import me.ganamaga.katharsis_paper.protocol.ChatChannel;
 import me.ganamaga.katharsis_paper.protocol.LanguageChannel;
 import me.ganamaga.katharsis_paper.protocol.ProxyClient;
+import me.ganamaga.katharsis_paper.protocol.PunishChannel;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -30,6 +33,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  * are shown in game. When the proxy says a player has joined the network for
  * the first time, the language selector opens for them on its own, followed by
  * the question about Discord chat.</p>
+ *
+ * <p>Mutes are issued on the proxy, which cannot block chat itself; it tells
+ * this plugin who is muted here, and this plugin cancels their chat and the
+ * commands they could talk through.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
 
@@ -57,6 +64,11 @@ public final class KatharsisPaper extends JavaPlugin {
         String serverId = getConfig().getString("server-id", "").strip();
         getServer().getMessenger().registerOutgoingPluginChannel(this, ChatChannel.CHANNEL);
         getServer().getPluginManager().registerEvents(new ChatListener(this, serverId), this);
+
+        MuteListener muteListener = new MuteListener(this, new MuteRegistry());
+        getServer().getMessenger().registerOutgoingPluginChannel(this, PunishChannel.CHANNEL);
+        getServer().getMessenger().registerIncomingPluginChannel(this, PunishChannel.CHANNEL, muteListener);
+        getServer().getPluginManager().registerEvents(muteListener, this);
 
         AnnounceListener announcer = new AnnounceListener(this, client, getPluginMeta().getVersion(), serverId);
         getServer().getPluginManager().registerEvents(announcer, this);
@@ -86,6 +98,8 @@ public final class KatharsisPaper extends JavaPlugin {
         // player yet to carry the message, so this reports that and the first
         // join sends it instead.
         announcer.announceOnStartup();
+        // After a reload with players online, nobody is muted until the proxy says so.
+        muteListener.resync();
     }
 
     @Override

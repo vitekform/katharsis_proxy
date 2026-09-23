@@ -290,3 +290,58 @@ public final class LanguageClient extends JavaPlugin implements PluginMessageLis
   API.
 - The channel is served even when the database is down, so you get an explicit
   `database_unavailable` instead of a silent timeout.
+
+# Mutes over `katharsis:punish`
+
+The proxy cannot stop a player's chat itself: cancelling a signed chat message
+on its way through disconnects the client. So mutes are enforced by the
+companion plugin, and the proxy tells it who is muted on its server over a
+second channel, `katharsis:punish`. See [punishments.md](punishments.md) for the
+mutes themselves.
+
+| Operation       | Direction        | Meaning                                                    |
+|-----------------|------------------|------------------------------------------------------------|
+| `mute_state`    | proxy to backend | Whether the player is muted on this server, and what that blocks. |
+| `mute_query`    | backend to proxy | Send me this player's `mute_state`.                         |
+| `muted_attempt` | backend to proxy | A muted player tried to chat or use a blocked command.     |
+
+Like `katharsis:language`, it is only served to backend servers, messages from
+clients are dropped, and nothing on it is forwarded to the other side. Every
+message travels on the connection of the player it is about; one naming any
+other player is ignored.
+
+## Encoding
+
+Every message starts with two `DataOutput#writeUTF` strings: the `operation`
+and the player's `uuid` in canonical dashed form. `mute_query` and
+`muted_attempt` carry nothing more. `mute_state` goes on:
+
+| # | Field          | Type                 | Notes                                                    |
+|---|----------------|----------------------|----------------------------------------------------------|
+| 3 | `muted`        | boolean              | The rest is only present when `true`.                    |
+| 4 | `expiresAt`    | long                 | Epoch milliseconds; `-1` for a mute that never ends.      |
+| 5 | `punishmentId` | long                 | The mute's id, as `/history` shows it.                   |
+| 6 | `commandCount` | int                  | How many commands follow.                                |
+| 7 | `commands`     | UTF × `commandCount` | Lower-case labels without the slash, e.g. `msg`. `ns:msg` is blocked by `msg` too. |
+
+There is no `requestId`: a `mute_state` is the same whether it was asked for or
+pushed.
+
+## When `mute_state` is sent
+
+- whenever a player reaches a server;
+- when they are muted or unmuted, or their mute runs out, while online;
+- in answer to `mute_query`, which the companion sends for each player as they
+  join and for everyone online when it starts, so a reload loses nothing.
+
+The proxy works out which mute applies from the `velocity.toml` name of the
+server the connection is to, so a backend only ever learns "muted here or not".
+The companion checks `expiresAt` itself, so a mute ends on time even if the
+proxy's `mute_state` saying so arrives late. A backend that has not been told
+anything treats the player as not muted.
+
+## `muted_attempt`
+
+The companion cancels the message or command and sends this; the proxy then
+tells the player, in their own language, why and for how long, at most once
+every three seconds. That keeps every translated string on the proxy.

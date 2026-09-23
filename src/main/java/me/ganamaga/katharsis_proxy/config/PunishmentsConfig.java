@@ -54,6 +54,10 @@ public class PunishmentsConfig {
      */
     private List<String> trustedProxyIps = new ArrayList<>();
 
+    /** Commands a muted player cannot use, as they would talk through them. */
+    private List<String> mutedCommands = new ArrayList<>(List.of(
+            "msg", "tell", "w", "whisper", "m", "t", "pm", "dm", "r", "reply", "me", "say", "mail"));
+
     public boolean enabled() {
         return enabled;
     }
@@ -94,6 +98,19 @@ public class PunishmentsConfig {
 
     public List<String> trustedProxyIps() {
         return trustedProxyIps == null ? List.of() : trustedProxyIps;
+    }
+
+    /** Lower-cased, without a leading slash; the namespace of {@code ns:cmd} is matched either way. */
+    public List<String> mutedCommands() {
+        if (mutedCommands == null) {
+            return List.of();
+        }
+        return mutedCommands.stream()
+                .map(command -> command.strip().toLowerCase(Locale.ROOT))
+                .map(command -> command.startsWith("/") ? command.substring(1) : command)
+                .filter(command -> !command.isEmpty())
+                .distinct()
+                .toList();
     }
 
     private static DefaultScope parseScope(String value, DefaultScope fallback) {

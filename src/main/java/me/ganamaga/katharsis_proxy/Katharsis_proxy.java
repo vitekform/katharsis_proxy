@@ -55,6 +55,7 @@ import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
+import me.ganamaga.katharsis_proxy.messaging.PunishChannel;
 import me.ganamaga.katharsis_proxy.moderation.ChatModerator;
 import me.ganamaga.katharsis_proxy.moderation.ModerationAlerts;
 import me.ganamaga.katharsis_proxy.moderation.ModerationFactory;
@@ -69,6 +70,7 @@ import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import me.ganamaga.katharsis_proxy.punish.ActivePunishments;
 import me.ganamaga.katharsis_proxy.punish.IpAddresses;
+import me.ganamaga.katharsis_proxy.punish.MuteEnforcer;
 import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
 import me.ganamaga.katharsis_proxy.punish.PunishmentService;
 import me.ganamaga.katharsis_proxy.punish.PunishmentText;
@@ -161,6 +163,7 @@ public class Katharsis_proxy {
     private PlayerHistoryRepository playerHistory;
     private PunishmentRepository punishments;
     private PunishmentService punishmentService;
+    private MuteEnforcer muteEnforcer;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
@@ -347,6 +350,14 @@ public class Katharsis_proxy {
         ServerBans serverBans = new ServerBans(proxy, punishmentService, scopes, text);
         punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock, serverBans));
         punishmentService.addObserver(new StaffNotifier(proxy, text));
+        muteEnforcer = new MuteEnforcer(proxy, logger, punishmentService, scopes, text,
+                () -> configManager.config().punishments());
+        punishmentService.addObserver(muteEnforcer);
+        proxy.getChannelRegistrar().register(PunishChannel.IDENTIFIER);
+        proxy.getEventManager().register(this, muteEnforcer);
+        // Also used by plugin messaging, set up later; commands warn when a
+        // muted player's server has no companion to enforce the mute.
+        companions = new CompanionRegistry(logger);
 
         proxy.getEventManager().register(this, new PunishmentLoginListener(logger, punishmentService,
                 playerHistory, players, text, () -> configManager.config().punishments().failClosed()));
@@ -357,7 +368,7 @@ public class Katharsis_proxy {
                         IpAddresses.of(player.getRemoteAddress()).orElse(null))),
                 playerHistory, authAccounts, !proxy.getConfiguration().isOnlineMode());
         PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
-                scopes, text, () -> configManager.config().punishments());
+                scopes, text, () -> configManager.config().punishments(), companions);
         registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
                 IssueCommand.Variant.PERMANENT));
         registerStaffCommand("tempban", new IssueCommand(context, "tempban", PunishmentType.BAN,
@@ -365,10 +376,18 @@ public class Katharsis_proxy {
         registerStaffCommand("banip", new IssueCommand(context, "banip", PunishmentType.BAN,
                 IssueCommand.Variant.ADDRESS), "ipban");
         registerStaffCommand("unban", new RevokeCommand(context, "unban", PunishmentType.BAN), "pardon");
+        registerStaffCommand("mute", new IssueCommand(context, "mute", PunishmentType.MUTE,
+                IssueCommand.Variant.PERMANENT));
+        registerStaffCommand("tempmute", new IssueCommand(context, "tempmute", PunishmentType.MUTE,
+                IssueCommand.Variant.TEMPORARY));
+        registerStaffCommand("muteip", new IssueCommand(context, "muteip", PunishmentType.MUTE,
+                IssueCommand.Variant.ADDRESS), "ipmute");
+        registerStaffCommand("unmute", new RevokeCommand(context, "unmute", PunishmentType.MUTE));
         registerStaffCommand("kick", new KickCommand(context));
         registerStaffCommand("history", new HistoryCommand(context));
         registerStaffCommand("check", new CheckCommand(context), "lookup");
-        logger.info(GREEN + "Punishments enabled: /ban, /tempban, /banip, /unban, /kick, /history, /check.");
+        logger.info(GREEN + "Punishments enabled: /ban, /tempban, /banip, /unban, /mute, /tempmute, /muteip, "
+                + "/unmute, /kick, /history, /check. Mutes are enforced on servers running the companion.");
     }
 
     private void registerStaffCommand(String name, SimpleCommand command, String... aliases) {
@@ -495,7 +514,9 @@ public class Katharsis_proxy {
      * instead of silence and chat reports are still kept away from clients.
      */
     private void registerPluginMessaging() {
-        companions = new CompanionRegistry(logger);
+        if (companions == null) {
+            companions = new CompanionRegistry(logger);
+        }
         proxy.getChannelRegistrar().register(LanguageChannel.IDENTIFIER);
         proxy.getEventManager().register(this, new LanguageChannelListener(
                 proxy, logger, languageRegistry, messages, database, players, languageCache, discordChatCache,
@@ -632,7 +653,7 @@ public class Katharsis_proxy {
         proxy.getScheduler().buildTask(this, () -> {
             discordChatCache.evictExpired();
             if (punishmentService != null) {
-                punishmentService.active().evictExpired(punishmentService.clock().instant());
+                muteEnforcer.expired(punishmentService.active().evictExpired(punishmentService.clock().instant()));
             }
             int evicted = languageCache.evictExpired();
             if (evicted > 0) {

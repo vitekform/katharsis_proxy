@@ -8,6 +8,7 @@ import me.ganamaga.katharsis_proxy.config.PunishmentsConfig;
 import me.ganamaga.katharsis_proxy.database.PlayerHistoryRepository;
 import me.ganamaga.katharsis_proxy.entity.IssuerRef;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
+import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
 import me.ganamaga.katharsis_proxy.punish.PunishmentService;
 import me.ganamaga.katharsis_proxy.punish.PunishmentText;
 import me.ganamaga.katharsis_proxy.punish.ScopeResolver;
@@ -20,12 +21,13 @@ import java.util.function.Supplier;
 /**
  * What every punishment command needs, in one place.
  *
- * @param plugin  the plugin, to schedule work under
- * @param config  the {@code punishments} section, as currently loaded
+ * @param plugin     the plugin, to schedule work under
+ * @param config     the {@code punishments} section, as currently loaded
+ * @param companions which servers run the companion plugin, which enforces mutes
  */
 public record PunishContext(Object plugin, ProxyServer proxy, Logger logger, PunishmentService service,
                             TargetResolver targets, PlayerHistoryRepository history, ScopeResolver scopes,
-                            PunishmentText text, Supplier<PunishmentsConfig> config) {
+                            PunishmentText text, Supplier<PunishmentsConfig> config, CompanionRegistry companions) {
 
     public Messages messages() {
         return text.messages();

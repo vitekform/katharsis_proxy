@@ -121,6 +121,22 @@ after that, `/settings` is the place to change it.
 Every string in both menus comes from the proxy's `lang/` files, under the
 `settings-*` and `discord-chat-prompt-*` keys.
 
+## Mutes
+
+Mutes are issued on the proxy, but only the backend can stop a player's chat:
+the proxy cannot cancel a signed chat message without disconnecting the client.
+The proxy tells the companion who is muted on its server over
+`katharsis:punish`, and the companion cancels their chat and the commands in the
+proxy's `punishments.muted-commands` before any other plugin sees them, so
+muted messages never reach the chat log either. The player is told why by the
+proxy, in their language.
+
+The companion asks for everyone's state when it starts, so a reload with
+players online loses no mutes, and checks each mute's end itself. A server
+without the companion does not enforce mutes. See
+[punishments.md](punishments.md) and
+[plugin-messaging.md](plugin-messaging.md#mutes-over-katharsispunish).
+
 ## Supported versions
 
 The same sources are built twice, once per Paper line, because the two lines

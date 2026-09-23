@@ -370,7 +370,19 @@ public enum MessageKey {
     PUNISH_MOVED_TO("punish-moved-to"),
 
     /** Disconnect screen when bans leave a player no server to join. Placeholders: {@code <server>}, {@code <reason>}, {@code <expires>}, {@code <id>}, {@code <appeal>}. */
-    PUNISH_SERVER_BAN_SCREEN("punish-server-ban-screen");
+    PUNISH_SERVER_BAN_SCREEN("punish-server-ban-screen"),
+
+    /** Told to a muted player who tries to speak. Placeholders: {@code <reason>}, {@code <remaining>}, {@code <id>}. */
+    PUNISH_MUTED_NOTICE("punish-muted-notice"),
+
+    /** Told to a player as they are muted. Placeholders: {@code <scope>}, {@code <duration>}, {@code <reason>}. */
+    PUNISH_YOU_WERE_MUTED("punish-you-were-muted"),
+
+    /** Told to a player whose mute was lifted or ran out. Placeholders: none. */
+    PUNISH_MUTE_ENDED("punish-mute-ended"),
+
+    /** To the issuer: the target's server cannot block chat. Placeholders: {@code <server>}. */
+    PUNISH_NO_COMPANION("punish-no-companion");
 
     private final String key;
 

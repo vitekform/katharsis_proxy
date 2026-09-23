@@ -1,6 +1,7 @@
 package me.ganamaga.katharsis_proxy.command.punish;
 
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
 import me.ganamaga.katharsis_proxy.entity.Punishment;
 import me.ganamaga.katharsis_proxy.entity.PunishmentScope;
 import me.ganamaga.katharsis_proxy.entity.PunishmentType;
@@ -18,7 +19,7 @@ import java.util.Optional;
 
 /**
  * Issues a lasting punishment: {@code /ban}, {@code /tempban}, {@code /banip}
- * and their mute counterparts.
+ * and their mute counterparts {@code /mute}, {@code /tempmute}, {@code /muteip}.
  *
  * <pre>
  * /ban     PLAYER [flags] [reason...]
@@ -111,6 +112,9 @@ public final class IssueCommand extends StaffCommand {
                 if (issued.addressSkipped()) {
                     send(source, MessageKey.PUNISH_ADDRESS_SKIPPED, Placeholder.unparsed("player", target.name()));
                 }
+                if (type == PunishmentType.MUTE) {
+                    warnWithoutCompanion(source, target);
+                }
             }
             case IssueResult.AlreadyActive already -> send(source, MessageKey.PUNISH_ALREADY_ACTIVE,
                     Placeholder.unparsed("player", target.name()),
@@ -124,6 +128,22 @@ public final class IssueCommand extends StaffCommand {
                     send(source, MessageKey.PUNISH_NO_ADDRESS, Placeholder.unparsed("player", target.name()));
             case IssueResult.Unavailable ignored -> send(source, MessageKey.PUNISH_UNAVAILABLE);
         }
+    }
+
+    /**
+     * Mutes are enforced by the companion plugin; tell the issuer if the
+     * target is on a server without it, where they can still chat.
+     */
+    private void warnWithoutCompanion(CommandSource source, Target target) {
+        if (target.isAddress()) {
+            return;
+        }
+        context.proxy().getPlayer(target.uuid())
+                .flatMap(Player::getCurrentServer)
+                .map(server -> server.getServerInfo().getName())
+                .filter(server -> !context.companions().servers().contains(server))
+                .ifPresent(server -> send(source, MessageKey.PUNISH_NO_COMPANION,
+                        Placeholder.unparsed("server", server)));
     }
 
     private IpMode ipMode(PunishArgs args, Target target) {

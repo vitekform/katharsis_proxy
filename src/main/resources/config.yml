@@ -328,7 +328,7 @@ auth:
 
 punishments:
   # Bans, mutes, kicks and warnings, given with /ban, /tempban, /banip,
-  # /unban, /kick, /history and /check. Every command needs its permission,
+  # /unban, /mute, /tempmute, /muteip, /unmute, /kick, /history and /check. Every command needs its permission,
   # katharsis.punish.<command>, which nobody has until it is granted.
   # Punishing on the whole network also needs katharsis.punish.global, seeing
   # addresses katharsis.punish.seeip; staff with katharsis.punish.notify are
@@ -381,6 +381,25 @@ punishments:
   # addresses. They are never banned. If every player seems to join from one
   # address, set up proxy-protocol forwarding instead.
   trusted-proxy-ips: []
+
+  # Commands a muted player cannot use, since they would only talk through
+  # them instead. Chat and these are blocked on servers running the companion
+  # plugin; on the proxy only its own commands can be blocked. Namespaced forms
+  # such as minecraft:msg are blocked too.
+  muted-commands:
+    - msg
+    - tell
+    - w
+    - whisper
+    - m
+    - t
+    - pm
+    - dm
+    - r
+    - reply
+    - me
+    - say
+    - mail
 
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
