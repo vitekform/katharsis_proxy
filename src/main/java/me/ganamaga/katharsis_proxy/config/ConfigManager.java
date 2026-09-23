@@ -1,6 +1,7 @@
 package me.ganamaga.katharsis_proxy.config;
 
 import me.ganamaga.katharsis_proxy.entity.Player;
+import me.ganamaga.katharsis_proxy.punish.IpAddresses;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.CommentedConfigurationNode;
 import org.spongepowered.configurate.ConfigurateException;
@@ -97,6 +98,23 @@ public final class ConfigManager {
         }
         validateMotd(loaded.motd());
         validateDiscord(loaded.discord());
+        validatePunishments(loaded.punishments());
+    }
+
+    private void validatePunishments(PunishmentsConfig punishments) {
+        punishments.serverGroups().forEach((group, servers) -> {
+            if (group.equalsIgnoreCase("global")) {
+                logger.warn("punishments.server-groups.{} clashes with the global scope and cannot be chosen.", group);
+            }
+            if (servers == null || servers.isEmpty()) {
+                logger.warn("punishments.server-groups.{} has no servers, so punishments there apply nowhere.", group);
+            }
+        });
+        for (String ip : punishments.trustedProxyIps()) {
+            if (IpAddresses.parseLiteral(ip).isEmpty()) {
+                logger.warn("punishments.trusted-proxy-ips entry '{}' is not an IP address and is ignored.", ip);
+            }
+        }
     }
 
     private void validateDiscord(DiscordConfig discord) {

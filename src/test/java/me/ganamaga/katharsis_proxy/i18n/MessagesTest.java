@@ -108,4 +108,16 @@ class MessagesTest {
         assertEquals(plain(messages.render("en_US", MessageKey.CONNECTING, server)),
                 plain(messages.render("zz_ZZ", MessageKey.CONNECTING, server)));
     }
+
+    @Test
+    @DisplayName("long durations read in their two largest units, permanent without any")
+    void longDuration() {
+        assertEquals("permanent", plain(messages.longDuration("en_US", null)));
+        assertEquals("trvale", plain(messages.longDuration("cs_CZ", null)));
+        assertEquals("7d 0h", plain(messages.longDuration("en_US", Duration.ofDays(7))));
+        assertEquals("1d 1h", plain(messages.longDuration("en_US", Duration.ofHours(25).plusMinutes(59))));
+        assertEquals("2h 30m", plain(messages.longDuration("en_US", Duration.ofMinutes(150))));
+        assertEquals(plain(messages.duration("en_US", Duration.ofSeconds(90))),
+                plain(messages.longDuration("en_US", Duration.ofSeconds(90))), "under an hour, as a cooldown");
+    }
 }

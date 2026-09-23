@@ -223,7 +223,145 @@ public enum MessageKey {
     AUTH_KICK_WRONG_CASE("auth-kick-wrong-case"),
 
     /** Kick reason, or reply: accounts cannot be checked right now. Placeholders: none. */
-    AUTH_UNAVAILABLE("auth-unavailable");
+    AUTH_UNAVAILABLE("auth-unavailable"),
+
+    /** Placeholders: {@code <days>}, {@code <hours>}. */
+    DURATION_DAYS_HOURS("duration-days-hours"),
+
+    /** Placeholders: {@code <hours>}, {@code <minutes>}. */
+    DURATION_HOURS_MINUTES("duration-hours-minutes"),
+
+    /** A punishment that never runs out. Placeholders: none. */
+    DURATION_PERMANENT("duration-permanent"),
+
+    /** Placeholders: none. */
+    PUNISH_TYPE_BAN("punish-type-ban"),
+
+    /** Placeholders: none. */
+    PUNISH_TYPE_MUTE("punish-type-mute"),
+
+    /** Placeholders: none. */
+    PUNISH_TYPE_WARN("punish-type-warn"),
+
+    /** Placeholders: none. */
+    PUNISH_TYPE_KICK("punish-type-kick"),
+
+    /** The whole network, as a scope. Placeholders: none. */
+    PUNISH_SCOPE_GLOBAL("punish-scope-global"),
+
+    /** Placeholders: {@code <name>}. */
+    PUNISH_SCOPE_SERVER("punish-scope-server"),
+
+    /** Placeholders: {@code <name>}. */
+    PUNISH_SCOPE_GROUP("punish-scope-group"),
+
+    /** Disconnect screen of a network-wide ban. Placeholders: {@code <reason>}, {@code <expires>} (a duration, or permanent), {@code <issuer>}, {@code <id>}, {@code <appeal>} (the appeal line, or nothing). */
+    PUNISH_BAN_SCREEN("punish-ban-screen"),
+
+    /** Added to the ban screen when an appeal URL is set. Placeholders: {@code <url>}. */
+    PUNISH_APPEAL_LINE("punish-appeal-line"),
+
+    /** Disconnect screen of a kick. Placeholders: {@code <reason>}, {@code <issuer>}. */
+    PUNISH_KICK_SCREEN("punish-kick-screen"),
+
+    /** Disconnect screen when bans cannot be checked and fail-closed is on. Placeholders: none. */
+    PUNISH_UNAVAILABLE_SCREEN("punish-unavailable-screen"),
+
+    /** Placeholders: {@code <usage>}, the command's syntax. */
+    PUNISH_USAGE("punish-usage"),
+
+    /** Placeholders: {@code <player>}, {@code <type>}, {@code <scope>}, {@code <duration>}, {@code <id>}. */
+    PUNISH_ISSUED("punish-issued"),
+
+    /** Placeholders: {@code <player>}, {@code <id>}. */
+    PUNISH_KICKED("punish-kicked"),
+
+    /** No address to ban along with the account. Placeholders: {@code <player>}. */
+    PUNISH_ADDRESS_SKIPPED("punish-address-skipped"),
+
+    /** Placeholders: {@code <player>}, {@code <type>}, {@code <count>}. */
+    PUNISH_REVOKED("punish-revoked"),
+
+    /** Placeholders: {@code <player>}, {@code <type>}, {@code <id>}. */
+    PUNISH_ALREADY_ACTIVE("punish-already-active"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_TARGET_EXEMPT("punish-target-exempt"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_TARGET_OUTRANKS("punish-target-outranks"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_UNKNOWN_PLAYER("punish-unknown-player"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_NOT_ONLINE("punish-not-online"),
+
+    /** An address-only punishment with no address to use. Placeholders: {@code <player>}. */
+    PUNISH_NO_ADDRESS("punish-no-address"),
+
+    /** Placeholders: {@code <player>}, {@code <type>}. */
+    PUNISH_NOTHING_ACTIVE("punish-nothing-active"),
+
+    /** Placeholders: {@code <id>}, {@code <type>}. */
+    PUNISH_UNKNOWN_ID("punish-unknown-id"),
+
+    /** Placeholders: {@code <input>}. */
+    PUNISH_INVALID_DURATION("punish-invalid-duration"),
+
+    /** Placeholders: {@code <scope>}. */
+    PUNISH_UNKNOWN_SCOPE("punish-unknown-scope"),
+
+    /** Placeholders: none. */
+    PUNISH_NO_GLOBAL_PERMISSION("punish-no-global-permission"),
+
+    /** Placeholders: none. */
+    PUNISH_UNAVAILABLE("punish-unavailable"),
+
+    /** To staff. Placeholders: {@code <issuer>}, {@code <player>}, {@code <type>}, {@code <scope>}, {@code <duration>}, {@code <reason>}, {@code <id>}. */
+    PUNISH_STAFF_ISSUED("punish-staff-issued"),
+
+    /** To staff. Placeholders: {@code <issuer>}, {@code <player>}, {@code <reason>}, {@code <id>}. */
+    PUNISH_STAFF_KICKED("punish-staff-kicked"),
+
+    /** To staff. Placeholders: {@code <issuer>}, {@code <player>}, {@code <type>}, {@code <id>}. */
+    PUNISH_STAFF_REVOKED("punish-staff-revoked"),
+
+    /** Placeholders: {@code <player>}, {@code <page>}, {@code <pages>}. */
+    PUNISH_HISTORY_HEADER("punish-history-header"),
+
+    /** Placeholders: {@code <id>}, {@code <date>}, {@code <type>}, {@code <scope>}, {@code <duration>}, {@code <reason>}, {@code <issuer>}, {@code <status>}. */
+    PUNISH_HISTORY_LINE("punish-history-line"),
+
+    /** Placeholders: {@code <player>}. */
+    PUNISH_HISTORY_EMPTY("punish-history-empty"),
+
+    /** Placeholders: none. */
+    PUNISH_STATUS_ACTIVE("punish-status-active"),
+
+    /** Placeholders: none. */
+    PUNISH_STATUS_EXPIRED("punish-status-expired"),
+
+    /** Placeholders: {@code <issuer>}. */
+    PUNISH_STATUS_REVOKED("punish-status-revoked"),
+
+    /** A kick, which has no state. Placeholders: none. */
+    PUNISH_STATUS_DONE("punish-status-done"),
+
+    /** Placeholders: {@code <player>}, {@code <uuid>}. */
+    PUNISH_CHECK_HEADER("punish-check-header"),
+
+    /** Placeholders: {@code <first>}, {@code <last>}, {@code <ip>}. */
+    PUNISH_CHECK_SEEN("punish-check-seen"),
+
+    /** Placeholders: {@code <type>}, {@code <scope>}, {@code <remaining>}, {@code <reason>}, {@code <id>}. */
+    PUNISH_CHECK_ACTIVE("punish-check-active"),
+
+    /** Placeholders: none. */
+    PUNISH_CHECK_NONE("punish-check-none"),
+
+    /** Stands in for an address the viewer may not see. Placeholders: none. */
+    PUNISH_IP_HIDDEN("punish-ip-hidden");
 
     private final String key;
 

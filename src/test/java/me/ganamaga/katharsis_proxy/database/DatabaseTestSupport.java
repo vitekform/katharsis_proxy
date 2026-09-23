@@ -9,18 +9,18 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 
 /** Opens a throwaway H2 database in a test's temporary directory. */
-final class DatabaseTestSupport {
+public final class DatabaseTestSupport {
 
     private DatabaseTestSupport() {
     }
 
-    static DatabaseManager started(Path directory) throws ConfigurateException, SQLException {
+    public static DatabaseManager started(Path directory) throws ConfigurateException, SQLException {
         ConfigManager config = new ConfigManager(LoggerFactory.getLogger("test"), directory);
         config.load();
         return started(directory, config.config().database());
     }
 
-    static DatabaseManager started(Path directory, DatabaseConfig database) throws SQLException {
+    public static DatabaseManager started(Path directory, DatabaseConfig database) throws SQLException {
         DatabaseManager manager = new DatabaseManager(LoggerFactory.getLogger("test"), directory);
         manager.start(database);
         return manager;

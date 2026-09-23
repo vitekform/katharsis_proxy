@@ -326,6 +326,62 @@ auth:
     iterations: 2
     parallelism: 1
 
+punishments:
+  # Bans, mutes, kicks and warnings, given with /ban, /tempban, /banip,
+  # /unban, /kick, /history and /check. Every command needs its permission,
+  # katharsis.punish.<command>, which nobody has until it is granted.
+  # Punishing on the whole network also needs katharsis.punish.global, seeing
+  # addresses katharsis.punish.seeip; staff with katharsis.punish.notify are
+  # told about every punishment, and katharsis.punish.exempt cannot be punished.
+  enabled: true
+
+  # Servers that are punished together, named after velocity.toml. A
+  # punishment on a group applies on every server in it, as the group stands
+  # when it is checked: adding a server here extends the bans already issued
+  # on the group. "global" is taken, and cannot be a group name.
+  #
+  # server-groups:
+  #   survival:
+  #     - lifesteal
+  #     - lifesteal2
+  server-groups: {}
+
+  # Where a punishment applies when the command does not say (-g for the
+  # whole network, -s NAME for a server or group):
+  #   current-server - the server the staff member is on
+  #   global         - the whole network
+  default-scope: current-server
+
+  # With current-server, a server that belongs to a group punishes on the
+  # whole group.
+  default-scope-uses-group: true
+
+  # Where punishments from the console and Discord apply when none is named:
+  # global, or a server or group.
+  console-default-scope: global
+
+  # /ban and /tempban also ban the address the player last joined from, so a
+  # fresh account on the same connection is kept out too. -a bans only the
+  # account; /banip or -i bans only the address.
+  ban-ip-by-default: true
+
+  # Stored as the reason when a staff member gives none.
+  default-reason: "No reason given"
+
+  # Shown at the bottom of the ban screen, e.g. a Discord invite or a form.
+  # Leave empty to show nothing.
+  appeal-url: ""
+
+  # What to do with a player joining while bans cannot be checked, e.g. the
+  # database is down: true turns them away, false lets them in and logs it.
+  fail-closed: false
+
+  # Addresses many players share through no fault of their own, such as a
+  # reverse proxy's in front of this one when it does not pass on real
+  # addresses. They are never banned. If every player seems to join from one
+  # address, set up proxy-protocol forwarding instead.
+  trusted-proxy-ips: []
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

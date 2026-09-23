@@ -84,4 +84,27 @@ public final class Messages {
         return render(language, MessageKey.DURATION_SECONDS,
                 Placeholder.unparsed("seconds", Long.toString(seconds)));
     }
+
+    /**
+     * Formats a length that may run to days or years, such as a ban, to its
+     * two largest units; under an hour it reads like {@link #duration}.
+     * {@code null} is a length that never ends.
+     */
+    public Component longDuration(String language, Duration length) {
+        if (length == null) {
+            return render(language, MessageKey.DURATION_PERMANENT);
+        }
+        long totalSeconds = Math.max(1L, (length.toMillis() + 999L) / 1000L);
+        if (totalSeconds >= 86_400L) {
+            return render(language, MessageKey.DURATION_DAYS_HOURS,
+                    Placeholder.unparsed("days", Long.toString(totalSeconds / 86_400L)),
+                    Placeholder.unparsed("hours", Long.toString(totalSeconds % 86_400L / 3_600L)));
+        }
+        if (totalSeconds >= 3_600L) {
+            return render(language, MessageKey.DURATION_HOURS_MINUTES,
+                    Placeholder.unparsed("hours", Long.toString(totalSeconds / 3_600L)),
+                    Placeholder.unparsed("minutes", Long.toString(totalSeconds % 3_600L / 60L)));
+        }
+        return duration(language, length);
+    }
 }

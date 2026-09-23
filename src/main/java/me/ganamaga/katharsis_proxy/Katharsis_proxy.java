@@ -3,6 +3,7 @@ package me.ganamaga.katharsis_proxy;
 import com.google.inject.Inject;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.CommandMeta;
+import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
@@ -18,11 +19,18 @@ import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
 import me.ganamaga.katharsis_proxy.command.AuthCommand;
 import me.ganamaga.katharsis_proxy.command.LinkCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
+import me.ganamaga.katharsis_proxy.command.punish.CheckCommand;
+import me.ganamaga.katharsis_proxy.command.punish.HistoryCommand;
+import me.ganamaga.katharsis_proxy.command.punish.IssueCommand;
+import me.ganamaga.katharsis_proxy.command.punish.KickCommand;
+import me.ganamaga.katharsis_proxy.command.punish.PunishContext;
+import me.ganamaga.katharsis_proxy.command.punish.RevokeCommand;
 import me.ganamaga.katharsis_proxy.config.AuthConfig;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
+import me.ganamaga.katharsis_proxy.config.PunishmentsConfig;
 import me.ganamaga.katharsis_proxy.database.AccountLinkRepository;
 import me.ganamaga.katharsis_proxy.database.AuthAccountRepository;
 import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
@@ -30,6 +38,7 @@ import me.ganamaga.katharsis_proxy.database.DatabaseManager;
 import me.ganamaga.katharsis_proxy.database.PlayerHistoryRepository;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
 import me.ganamaga.katharsis_proxy.database.PunishmentRepository;
+import me.ganamaga.katharsis_proxy.entity.PunishmentType;
 import me.ganamaga.katharsis_proxy.discord.DiscordAccountLinking;
 import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
@@ -58,6 +67,17 @@ import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
 import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
+import me.ganamaga.katharsis_proxy.punish.ActivePunishments;
+import me.ganamaga.katharsis_proxy.punish.IpAddresses;
+import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
+import me.ganamaga.katharsis_proxy.punish.PunishmentService;
+import me.ganamaga.katharsis_proxy.punish.PunishmentText;
+import me.ganamaga.katharsis_proxy.punish.ScopeResolver;
+import me.ganamaga.katharsis_proxy.punish.StaffNotifier;
+import me.ganamaga.katharsis_proxy.punish.Target;
+import me.ganamaga.katharsis_proxy.punish.TargetResolver;
+import me.ganamaga.katharsis_proxy.punish.VelocityEnforcer;
+import me.ganamaga.katharsis_proxy.punish.listener.PunishmentLoginListener;
 import me.ganamaga.katharsis_proxy.punish.listener.SessionRecorder;
 import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.slf4j.Logger;
@@ -71,12 +91,15 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class Katharsis_proxy {
 
@@ -135,6 +158,7 @@ public class Katharsis_proxy {
     private AuthAccountRepository authAccounts;
     private PlayerHistoryRepository playerHistory;
     private PunishmentRepository punishments;
+    private PunishmentService punishmentService;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
@@ -164,6 +188,7 @@ public class Katharsis_proxy {
         setUpAuth();
         // Before the chat channel, which hands every reported message to it.
         setUpModeration();
+        setUpPunishments();
         registerCommands();
         registerPluginMessaging();
         registerMotd();
@@ -286,6 +311,60 @@ public class Katharsis_proxy {
                         discordChatCache, firstJoinMenu));
         proxy.getEventManager().register(this, new SessionRecorder(logger, playerHistory, Clock.systemUTC()));
         logger.info(GREEN + "Player entities will be created on first join.");
+    }
+
+    /**
+     * Sets up bans, mutes, kicks and warnings: the checks at login, their
+     * enforcement, and the staff commands. Needs the database; without it
+     * nothing can be issued or checked, so nothing is registered.
+     */
+    private void setUpPunishments() {
+        PunishmentsConfig config = configManager.config().punishments();
+        if (!config.enabled()) {
+            logger.info("Punishments are disabled in {}.", configManager.configPath().getFileName());
+            return;
+        }
+        if (!database.isAvailable()) {
+            logger.error(RED + "Punishments are unavailable: the database could not be opened.");
+            return;
+        }
+        Clock clock = Clock.systemUTC();
+        Set<String> trusted = config.trustedProxyIps().stream()
+                .map(IpAddresses::parseLiteral)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
+        punishmentService = new PunishmentService(logger, punishments, new ActivePunishments(),
+                new OnlineHierarchy(proxy), trusted::contains, clock);
+        PunishmentText text = new PunishmentText(messages,
+                () -> configManager.config().punishments().appealUrl());
+        punishmentService.addObserver(new VelocityEnforcer(proxy, logger, text, clock));
+        punishmentService.addObserver(new StaffNotifier(proxy, text));
+
+        proxy.getEventManager().register(this, new PunishmentLoginListener(logger, punishmentService,
+                playerHistory, players, text, () -> configManager.config().punishments().failClosed()));
+
+        TargetResolver targets = new TargetResolver(
+                name -> proxy.getPlayer(name).map(player -> new Target(player.getUniqueId(), player.getUsername(),
+                        IpAddresses.of(player.getRemoteAddress()).orElse(null))),
+                playerHistory, authAccounts, !proxy.getConfiguration().isOnlineMode());
+        PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
+                new ScopeResolver(config.serverGroups()), text, () -> configManager.config().punishments());
+        registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
+                IssueCommand.Variant.PERMANENT));
+        registerStaffCommand("tempban", new IssueCommand(context, "tempban", PunishmentType.BAN,
+                IssueCommand.Variant.TEMPORARY));
+        registerStaffCommand("banip", new IssueCommand(context, "banip", PunishmentType.BAN,
+                IssueCommand.Variant.ADDRESS), "ipban");
+        registerStaffCommand("unban", new RevokeCommand(context, "unban", PunishmentType.BAN), "pardon");
+        registerStaffCommand("kick", new KickCommand(context));
+        registerStaffCommand("history", new HistoryCommand(context));
+        registerStaffCommand("check", new CheckCommand(context), "lookup");
+        logger.info(GREEN + "Punishments enabled: /ban, /tempban, /banip, /unban, /kick, /history, /check.");
+    }
+
+    private void registerStaffCommand(String name, SimpleCommand command, String... aliases) {
+        CommandManager commandManager = proxy.getCommandManager();
+        commandManager.register(commandManager.metaBuilder(name).aliases(aliases).plugin(this).build(), command);
     }
 
     private void registerCommands() {
@@ -543,6 +622,9 @@ public class Katharsis_proxy {
     private void scheduleCacheSweep() {
         proxy.getScheduler().buildTask(this, () -> {
             discordChatCache.evictExpired();
+            if (punishmentService != null) {
+                punishmentService.active().evictExpired(punishmentService.clock().instant());
+            }
             int evicted = languageCache.evictExpired();
             if (evicted > 0) {
                 logger.debug("Dropped {} cached language(s); {} remaining.", evicted, languageCache.size());

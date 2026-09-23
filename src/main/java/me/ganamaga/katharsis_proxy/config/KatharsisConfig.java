@@ -13,6 +13,7 @@ public class KatharsisConfig {
     private DiscordConfig discord = new DiscordConfig();
     private ModerationConfig moderation = new ModerationConfig();
     private AuthConfig auth = new AuthConfig();
+    private PunishmentsConfig punishments = new PunishmentsConfig();
     private String defaultLanguage = "en_US";
 
     /**
@@ -40,6 +41,10 @@ public class KatharsisConfig {
 
     public AuthConfig auth() {
         return auth == null ? new AuthConfig() : auth;
+    }
+
+    public PunishmentsConfig punishments() {
+        return punishments == null ? new PunishmentsConfig() : punishments;
     }
 
     public String defaultLanguage() {
