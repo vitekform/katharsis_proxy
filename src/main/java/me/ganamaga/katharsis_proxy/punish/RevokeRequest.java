@@ -16,9 +16,10 @@ import java.util.Objects;
  * @param id     one punishment; {@code null} to go by target
  * @param by     who lifts it
  * @param reason why, or {@code null}
+ * @param newestOnly by target, lift only the newest match, e.g. the last warning
  */
 public record RevokeRequest(PunishmentType type, Target target, PunishmentScope scope, Long id,
-                            IssuerRef by, String reason) {
+                            IssuerRef by, String reason, boolean newestOnly) {
 
     public RevokeRequest {
         Objects.requireNonNull(type, "type");
@@ -30,10 +31,15 @@ public record RevokeRequest(PunishmentType type, Target target, PunishmentScope 
 
     public static RevokeRequest byTarget(PunishmentType type, Target target, PunishmentScope scope,
                                          IssuerRef by, String reason) {
-        return new RevokeRequest(type, target, scope, null, by, reason);
+        return new RevokeRequest(type, target, scope, null, by, reason, false);
+    }
+
+    /** The newest active punishment of {@code type} on {@code target}. */
+    public static RevokeRequest newest(PunishmentType type, Target target, IssuerRef by, String reason) {
+        return new RevokeRequest(type, target, null, null, by, reason, true);
     }
 
     public static RevokeRequest byId(PunishmentType type, long id, IssuerRef by, String reason) {
-        return new RevokeRequest(type, null, null, id, by, reason);
+        return new RevokeRequest(type, null, null, id, by, reason, false);
     }
 }

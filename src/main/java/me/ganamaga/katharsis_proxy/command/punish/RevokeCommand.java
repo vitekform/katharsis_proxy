@@ -12,11 +12,13 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import java.util.Optional;
 
 /**
- * Lifts punishments: {@code /unban} and {@code /unmute}.
+ * Lifts punishments: {@code /unban}, {@code /unmute} and {@code /unwarn}.
  *
  * <pre>
- * /unban PLAYER|IP [-g|-s SERVER] [reason...]   every active ban, or those on one scope
- * /unban #ID [reason...]                        one ban
+ * /unban  PLAYER|IP [-g|-s SERVER] [reason...]   every active ban, or those on one scope
+ * /unban  #ID [reason...]                        one ban
+ * /unwarn PLAYER [reason...]                     the newest active warning
+ * /unwarn #ID [reason...]                        one warning
  * </pre>
  *
  * <p>An account's bans are the ones naming the account; a ban naming only an
@@ -55,8 +57,10 @@ public final class RevokeCommand extends StaffCommand {
         }
         PunishmentScope only = scope == null ? null : scope.get();
         context.async(() -> resolve(source, args).ifPresent(target -> report(source, target.name(), null,
-                context.service().revoke(RevokeRequest.byTarget(type, target, only,
-                        PunishContext.issuer(source), reason)))));
+                context.service().revoke(type == PunishmentType.WARN && only == null
+                        // Warnings pile up; lifting one takes back the last.
+                        ? RevokeRequest.newest(type, target, PunishContext.issuer(source), reason)
+                        : RevokeRequest.byTarget(type, target, only, PunishContext.issuer(source), reason)))));
     }
 
     private void report(CommandSource source, String targetName, Long id, RevokeResult result) {

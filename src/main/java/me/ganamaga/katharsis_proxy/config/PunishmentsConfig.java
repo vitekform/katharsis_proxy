@@ -58,6 +58,13 @@ public class PunishmentsConfig {
     private List<String> mutedCommands = new ArrayList<>(List.of(
             "msg", "tell", "w", "whisper", "m", "t", "pm", "dm", "r", "reply", "me", "say", "mail"));
 
+    private WarnsConfig warns = new WarnsConfig();
+
+    /** Template name, without the {@code #}, to what it gives. */
+    private Map<String, PunishTemplateConfig> templates = new LinkedHashMap<>();
+
+    private AutoModConfig automod = new AutoModConfig();
+
     public boolean enabled() {
         return enabled;
     }
@@ -111,6 +118,18 @@ public class PunishmentsConfig {
                 .filter(command -> !command.isEmpty())
                 .distinct()
                 .toList();
+    }
+
+    public WarnsConfig warns() {
+        return warns == null ? new WarnsConfig() : warns;
+    }
+
+    public Map<String, PunishTemplateConfig> templates() {
+        return templates == null ? Map.of() : templates;
+    }
+
+    public AutoModConfig automod() {
+        return automod == null ? new AutoModConfig() : automod;
     }
 
     private static DefaultScope parseScope(String value, DefaultScope fallback) {

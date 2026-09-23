@@ -6,6 +6,8 @@ import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import me.ganamaga.katharsis_proxy.entity.Punishment;
 import me.ganamaga.katharsis_proxy.entity.PunishmentType;
+import me.ganamaga.katharsis_proxy.i18n.MessageKey;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.slf4j.Logger;
 
 import java.time.Clock;
@@ -15,7 +17,8 @@ import java.util.Optional;
 /**
  * Puts new punishments into effect on the players online: a network-wide ban
  * disconnects its account and everyone on its address, a ban on a server or
- * group moves them off it, and a kick disconnects its target.
+ * group moves them off it, a kick disconnects its target, and a warning is
+ * shown to its target.
  */
 public final class VelocityEnforcer implements PunishmentObserver {
 
@@ -42,6 +45,11 @@ public final class VelocityEnforcer implements PunishmentObserver {
             disconnectHeld(punishment);
         } else if (punishment.type() == PunishmentType.BAN) {
             moveOffBannedServers();
+        } else if (punishment.type() == PunishmentType.WARN) {
+            online(punishment).ifPresent(player -> player.sendMessage(text.messages().prefixed(
+                    text.messages().languageOf(player), MessageKey.PUNISH_WARNED,
+                    Placeholder.unparsed("issuer", punishment.issuer().name()),
+                    Placeholder.unparsed("reason", punishment.reason()))));
         }
     }
 

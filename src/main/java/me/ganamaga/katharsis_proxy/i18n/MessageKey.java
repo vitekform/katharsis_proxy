@@ -382,7 +382,25 @@ public enum MessageKey {
     PUNISH_MUTE_ENDED("punish-mute-ended"),
 
     /** To the issuer: the target's server cannot block chat. Placeholders: {@code <server>}. */
-    PUNISH_NO_COMPANION("punish-no-companion");
+    PUNISH_NO_COMPANION("punish-no-companion"),
+
+    /** Told to a player as they are warned. Placeholders: {@code <issuer>}, {@code <reason>}. */
+    PUNISH_WARNED("punish-warned"),
+
+    /** Placeholders: {@code <player>}, {@code <count>}. */
+    PUNISH_WARNS_HEADER("punish-warns-header"),
+
+    /** Placeholders: {@code <id>}, {@code <date>}, {@code <reason>}, {@code <issuer>}, {@code <remaining>}. */
+    PUNISH_WARNS_LINE("punish-warns-line"),
+
+    /** The next escalation. Placeholders: {@code <count>}, {@code <type>}, {@code <duration>}. */
+    PUNISH_WARNS_NEXT("punish-warns-next"),
+
+    /** Placeholders: {@code <name>}. */
+    PUNISH_UNKNOWN_TEMPLATE("punish-unknown-template"),
+
+    /** A template of another type given to /ban, /mute or /warn. Placeholders: {@code <name>}, {@code <type>}. */
+    PUNISH_TEMPLATE_TYPE("punish-template-type");
 
     private final String key;
 

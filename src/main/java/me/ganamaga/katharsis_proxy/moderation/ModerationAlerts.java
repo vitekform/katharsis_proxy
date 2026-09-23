@@ -17,4 +17,12 @@ public interface ModerationAlerts {
      * while a chat message is being handled.
      */
     void flagged(ChatMessage message, ModerationVerdict verdict);
+
+    /** Reports to {@code first}, then {@code second}. */
+    static ModerationAlerts both(ModerationAlerts first, ModerationAlerts second) {
+        return (message, verdict) -> {
+            first.flagged(message, verdict);
+            second.flagged(message, verdict);
+        };
+    }
 }

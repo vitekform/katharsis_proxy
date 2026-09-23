@@ -83,12 +83,21 @@ abstract class StaffCommand implements SimpleCommand {
     }
 
     /**
-     * Where a new punishment from {@code source} applies: as the flags say, or
-     * else by the configured default. Tells {@code source} and returns empty if
-     * the scope named is unknown or they may not punish network-wide.
+     * Where a new punishment from {@code source} applies: as the flags say,
+     * else as {@code fallback} (a template's scope) says, else by the
+     * configured default. Tells {@code source} and returns empty if the scope
+     * named is unknown or they may not punish network-wide.
+     *
+     * @param fallback a scope as typed after {@code -s}, or {@code null}
      */
-    protected Optional<PunishmentScope> issueScope(CommandSource source, PunishArgs args) {
+    protected Optional<PunishmentScope> issueScope(CommandSource source, PunishArgs args, String fallback) {
         Optional<PunishmentScope> scope = explicitScope(source, args);
+        if (scope == null && fallback != null) {
+            scope = context.scopes().parse(fallback, context.serverNames());
+            if (scope.isEmpty()) {
+                send(source, MessageKey.PUNISH_UNKNOWN_SCOPE, Placeholder.unparsed("scope", fallback));
+            }
+        }
         if (scope == null) {
             scope = Optional.of(defaultScope(source));
         }
@@ -149,6 +158,8 @@ abstract class StaffCommand implements SimpleCommand {
             options = scopes.stream();
         } else if (current.startsWith("-")) {
             options = PunishArgs.FLAGS.stream();
+        } else if (current.startsWith("#") && takesTemplate()) {
+            options = context.templates().names().stream().map(name -> "#" + name);
         } else if (arguments.length <= 1) {
             options = context.proxy().getAllPlayers().stream().map(Player::getUsername);
         } else if (arguments.length == 2 && takesDuration()) {
@@ -158,6 +169,11 @@ abstract class StaffCommand implements SimpleCommand {
         }
         String prefix = current.toLowerCase(Locale.ROOT);
         return options.filter(option -> option.toLowerCase(Locale.ROOT).startsWith(prefix)).toList();
+    }
+
+    /** Whether a {@code #template} may be given, for tab completion. */
+    protected boolean takesTemplate() {
+        return false;
     }
 
     /** Whether the word after the target is a duration, for tab completion. */

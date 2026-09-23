@@ -21,6 +21,10 @@ granted**; without the node the command is not even suggested.
 | `/tempmute` | `<player> <duration> [flags] [reason]` | |
 | `/muteip` (`/ipmute`) | `<player\|ip> [duration] [flags] [reason]` | The address only. |
 | `/unmute` | as `/unban` | |
+| `/warn` | `<player> [flags] [#template] [reason]` | Lasts `warns.expire-after`. |
+| `/unwarn` (`/delwarn`) | `<player\|#id> [reason]` | The newest active warning, or one by id. |
+| `/warns` | `<player>` | Active warnings, and what the next one adds up to. |
+| `/punish` | `<player> <#template> [flags] [details]` | Whatever the template gives. |
 | `/kick` | `<player> [-q] [reason]` | Online players only; kept in the history. |
 | `/history` | `<player\|ip> [page]` | Everything ever issued, newest first. |
 | `/check` (`/lookup`) | `<player\|ip>` | What is in force now, and when and from where the player was last seen. |
@@ -104,6 +108,55 @@ blocked on the proxy.
 
 A muted player who tries to speak is told why and for how long. They are told
 when they are muted, and when the mute is lifted or runs out.
+
+## Templates
+
+A template is a punishment given by name, configured under
+`punishments.templates`:
+
+```yaml
+templates:
+  hacking:
+    type: ban
+    reason: "Cheating"
+    scope: global
+    ladder: [7d, 30d, perm]
+```
+
+`/ban Steve #hacking` bans Steve for a week the first time, a month the
+second, and for good after that; `/punish Steve #hacking` does the same without
+naming the type. Only earlier punishments from the same template count, and
+lifted ones do not, so an appeal won resets the ladder. A template's `scope` is
+used unless the command names one; anything typed after the template is added
+to the reason. `/ban` only takes ban templates, `/mute` mute templates and
+`/warn` warning templates.
+
+## Warnings and escalation
+
+A warning is a recorded telling-off that counts for `warns.expire-after`. When
+a player's active warnings reach a count in `warns.escalation`, they are given
+that step's punishment automatically, issued by "Escalation" and linked to the
+warning that triggered it:
+
+```yaml
+warns:
+  expire-after: 30d
+  escalation:
+    - { count: 3, type: mute, duration: 1h }
+    - { count: 5, template: hacking }
+```
+
+A step fires when the count lands on it, so the warnings after it do not give
+the same punishment again. Escalations apply on the warning's own scope unless
+the step names one, and hold the account only, never the address.
+
+### Automatic warnings
+
+With `automod.enabled`, chat the moderation filters held back (see
+[chat-moderation.md](chat-moderation.md)) earns its author a warning, or
+`automod.template` if set, on the server it was written on. It counts towards
+escalation like any other. A player gets at most one per `automod.cooldown`,
+and a message that could not be checked at all is never held against them.
 
 ## When the database is down
 

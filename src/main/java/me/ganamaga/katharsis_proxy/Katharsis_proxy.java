@@ -25,6 +25,7 @@ import me.ganamaga.katharsis_proxy.command.punish.IssueCommand;
 import me.ganamaga.katharsis_proxy.command.punish.KickCommand;
 import me.ganamaga.katharsis_proxy.command.punish.PunishContext;
 import me.ganamaga.katharsis_proxy.command.punish.RevokeCommand;
+import me.ganamaga.katharsis_proxy.command.punish.WarnsCommand;
 import me.ganamaga.katharsis_proxy.config.AuthConfig;
 import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.DiscordConfig;
@@ -69,6 +70,7 @@ import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
 import me.ganamaga.katharsis_proxy.punish.ActivePunishments;
+import me.ganamaga.katharsis_proxy.punish.AutoWarn;
 import me.ganamaga.katharsis_proxy.punish.IpAddresses;
 import me.ganamaga.katharsis_proxy.punish.MuteEnforcer;
 import me.ganamaga.katharsis_proxy.punish.OnlineHierarchy;
@@ -79,6 +81,8 @@ import me.ganamaga.katharsis_proxy.punish.ServerBans;
 import me.ganamaga.katharsis_proxy.punish.StaffNotifier;
 import me.ganamaga.katharsis_proxy.punish.Target;
 import me.ganamaga.katharsis_proxy.punish.TargetResolver;
+import me.ganamaga.katharsis_proxy.punish.TemplateRegistry;
+import me.ganamaga.katharsis_proxy.punish.WarnEscalation;
 import me.ganamaga.katharsis_proxy.punish.VelocityEnforcer;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentLoginListener;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentServerListener;
@@ -164,6 +168,7 @@ public class Katharsis_proxy {
     private PunishmentRepository punishments;
     private PunishmentService punishmentService;
     private MuteEnforcer muteEnforcer;
+    private AutoWarn autoWarn;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
@@ -232,6 +237,9 @@ public class Katharsis_proxy {
         }
         if (linkCommand != null) {
             linkCommand.cooldowns().clear(playerId);
+        }
+        if (autoWarn != null) {
+            autoWarn.cooldowns().clear(playerId);
         }
         // Start the retention window. This lives here rather than in the join
         // listener so entries are still reclaimed when the database is down and
@@ -367,8 +375,17 @@ public class Katharsis_proxy {
                 name -> proxy.getPlayer(name).map(player -> new Target(player.getUniqueId(), player.getUsername(),
                         IpAddresses.of(player.getRemoteAddress()).orElse(null))),
                 playerHistory, authAccounts, !proxy.getConfiguration().isOnlineMode());
+        TemplateRegistry templates = TemplateRegistry.load(config.templates(), logger::warn);
+        WarnEscalation escalation = new WarnEscalation(logger, punishmentService, templates,
+                WarnEscalation.load(config.warns().escalation(), templates, logger::warn), scopes,
+                this::serverNames);
+        // Last, so everyone hears of a warning before of what it escalated to.
+        punishmentService.addObserver(escalation);
+        autoWarn = new AutoWarn(logger, punishmentService, templates, () -> configManager.config().punishments(),
+                task -> proxy.getScheduler().buildTask(this, task).schedule(), this::serverNames);
+
         PunishContext context = new PunishContext(this, proxy, logger, punishmentService, targets, playerHistory,
-                scopes, text, () -> configManager.config().punishments(), companions);
+                scopes, text, () -> configManager.config().punishments(), companions, templates, escalation);
         registerStaffCommand("ban", new IssueCommand(context, "ban", PunishmentType.BAN,
                 IssueCommand.Variant.PERMANENT));
         registerStaffCommand("tempban", new IssueCommand(context, "tempban", PunishmentType.BAN,
@@ -383,11 +400,24 @@ public class Katharsis_proxy {
         registerStaffCommand("muteip", new IssueCommand(context, "muteip", PunishmentType.MUTE,
                 IssueCommand.Variant.ADDRESS), "ipmute");
         registerStaffCommand("unmute", new RevokeCommand(context, "unmute", PunishmentType.MUTE));
+        registerStaffCommand("warn", new IssueCommand(context, "warn", PunishmentType.WARN,
+                IssueCommand.Variant.PERMANENT));
+        registerStaffCommand("unwarn", new RevokeCommand(context, "unwarn", PunishmentType.WARN), "delwarn");
+        registerStaffCommand("warns", new WarnsCommand(context));
+        registerStaffCommand("punish", new IssueCommand(context, "punish", null, IssueCommand.Variant.PERMANENT));
         registerStaffCommand("kick", new KickCommand(context));
         registerStaffCommand("history", new HistoryCommand(context));
         registerStaffCommand("check", new CheckCommand(context), "lookup");
         logger.info(GREEN + "Punishments enabled: /ban, /tempban, /banip, /unban, /mute, /tempmute, /muteip, "
-                + "/unmute, /kick, /history, /check. Mutes are enforced on servers running the companion.");
+                + "/unmute, /warn, /unwarn, /warns, /punish, /kick, /history, /check. Mutes are enforced on servers "
+                + "running the companion.");
+        logger.info("{} punishment template(s), {} warning escalation step(s); automatic warnings for flagged "
+                + "chat are {}.", templates.names().size(), escalation.steps().size(),
+                config.automod().enabled() ? "on" : "off");
+    }
+
+    private List<String> serverNames() {
+        return proxy.getAllServers().stream().map(server -> server.getServerInfo().getName()).toList();
     }
 
     private void registerStaffCommand(String name, SimpleCommand command, String... aliases) {
@@ -496,9 +526,12 @@ public class Katharsis_proxy {
 
     /** Where held-back messages are reported, which is Discord or nowhere. */
     private ModerationAlerts moderationAlerts() {
-        return chatModerator == null
-                ? ModerationAlerts.NONE
-                : new DiscordModerationAlert(logger, discordBot, () -> configManager.config().moderation());
+        if (chatModerator == null) {
+            return ModerationAlerts.NONE;
+        }
+        ModerationAlerts discord =
+                new DiscordModerationAlert(logger, discordBot, () -> configManager.config().moderation());
+        return autoWarn == null ? discord : ModerationAlerts.both(discord, autoWarn);
     }
 
     /** Whether the author of a held-back message is told, and how. */

@@ -278,4 +278,25 @@ class ConfigManagerTest {
 
         assertEquals("cs_CZ", manager.config().defaultLanguage());
     }
+
+    @Test
+    @DisplayName("the default punishments section loads its templates, escalation and automod settings")
+    void defaultPunishments(@TempDir Path directory) throws ConfigurateException {
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+
+        PunishmentsConfig punishments = manager.config().punishments();
+        assertTrue(punishments.enabled());
+        assertEquals(PunishmentsConfig.DefaultScope.CURRENT_SERVER, punishments.defaultScope());
+        assertTrue(punishments.banIpByDefault());
+        assertTrue(punishments.mutedCommands().contains("msg"));
+        assertEquals("30d", punishments.warns().expireAfter());
+        assertEquals(2, punishments.warns().escalation().size());
+        assertEquals(3, punishments.warns().escalation().get(0).count());
+        assertEquals("mute", punishments.warns().escalation().get(0).type());
+        assertEquals(java.util.List.of("7d", "30d", "perm"), punishments.templates().get("hacking").ladder());
+        assertEquals("global", punishments.templates().get("hacking").scope());
+        assertFalse(punishments.automod().enabled());
+        assertEquals("AutoMod", punishments.automod().issuerName());
+    }
 }

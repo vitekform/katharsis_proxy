@@ -13,6 +13,8 @@ import me.ganamaga.katharsis_proxy.punish.PunishmentService;
 import me.ganamaga.katharsis_proxy.punish.PunishmentText;
 import me.ganamaga.katharsis_proxy.punish.ScopeResolver;
 import me.ganamaga.katharsis_proxy.punish.TargetResolver;
+import me.ganamaga.katharsis_proxy.punish.TemplateRegistry;
+import me.ganamaga.katharsis_proxy.punish.WarnEscalation;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -24,10 +26,13 @@ import java.util.function.Supplier;
  * @param plugin     the plugin, to schedule work under
  * @param config     the {@code punishments} section, as currently loaded
  * @param companions which servers run the companion plugin, which enforces mutes
+ * @param templates  the punishments staff give by name
+ * @param escalation what warnings add up to
  */
 public record PunishContext(Object plugin, ProxyServer proxy, Logger logger, PunishmentService service,
                             TargetResolver targets, PlayerHistoryRepository history, ScopeResolver scopes,
-                            PunishmentText text, Supplier<PunishmentsConfig> config, CompanionRegistry companions) {
+                            PunishmentText text, Supplier<PunishmentsConfig> config, CompanionRegistry companions,
+                            TemplateRegistry templates, WarnEscalation escalation) {
 
     public Messages messages() {
         return text.messages();

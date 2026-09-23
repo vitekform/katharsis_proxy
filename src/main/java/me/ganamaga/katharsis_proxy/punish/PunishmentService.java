@@ -167,6 +167,7 @@ public final class PunishmentService {
                         : punishments.findActive(target.uuid(), null, now)).stream()
                         .filter(p -> p.type() == request.type())
                         .filter(p -> request.scope() == null || p.scope().equals(request.scope()))
+                        .limit(request.newestOnly() ? 1 : Long.MAX_VALUE)
                         .toList();
             }
             List<Punishment> revoked = revokeAll(matching,
@@ -228,6 +229,21 @@ public final class PunishmentService {
     /** Permanent first, then by the later end. */
     public static final Comparator<Punishment> LONGEST = Comparator.comparing(
             Punishment::expiresAt, Comparator.nullsLast(Comparator.naturalOrder()));
+
+    /** The warnings in force against the account {@code uuid} itself, newest first. */
+    public List<Punishment> activeWarns(UUID uuid) throws SQLException {
+        return punishments.findActive(uuid, null, clock.instant()).stream()
+                .filter(p -> p.type() == PunishmentType.WARN)
+                .toList();
+    }
+
+    /**
+     * How many unrevoked punishments the account {@code uuid} has had from
+     * {@code template}, which picks the step of its ladder.
+     */
+    public int templateCount(UUID uuid, String template) throws SQLException {
+        return uuid == null ? 0 : punishments.countByTemplate(uuid, template);
+    }
 
     /** One page of what was ever issued against {@code target}, newest first. */
     public List<Punishment> history(Target target, int limit, int offset) throws SQLException {

@@ -328,7 +328,8 @@ auth:
 
 punishments:
   # Bans, mutes, kicks and warnings, given with /ban, /tempban, /banip,
-  # /unban, /mute, /tempmute, /muteip, /unmute, /kick, /history and /check. Every command needs its permission,
+  # /unban, /mute, /tempmute, /muteip, /unmute, /warn, /unwarn, /warns,
+  # /punish, /kick, /history and /check. Every command needs its permission,
   # katharsis.punish.<command>, which nobody has until it is granted.
   # Punishing on the whole network also needs katharsis.punish.global, seeing
   # addresses katharsis.punish.seeip; staff with katharsis.punish.notify are
@@ -400,6 +401,63 @@ punishments:
     - me
     - say
     - mail
+
+  # Warnings, given with /warn, lifted with /unwarn and listed with /warns.
+  warns:
+    # How long a warning counts towards escalation: a length such as 30d, or
+    # perm for ever. Expired warnings stay in /history.
+    expire-after: 30d
+
+    # What warnings add up to. When a player's active warnings reach count,
+    # they are given this automatically, by "Escalation"; each step fires once,
+    # when the count lands on it. Either name a template, or give a type (ban,
+    # mute or kick), a duration and a reason. scope is global, a server or a
+    # group; left out, the warning's own scope is used. Escalations hold the
+    # account only, never the address.
+    escalation:
+      - count: 3
+        type: mute
+        duration: 1h
+        reason: "Reached 3 warnings"
+      - count: 5
+        type: ban
+        duration: 1d
+        reason: "Reached 5 warnings"
+
+  # Punishments given by name: /ban Steve #hacking, /mute Steve #spam, or
+  # /punish Steve #hacking whatever the type. type is ban, mute or warn. The
+  # ladder is how long each offence lasts: the first time the first length, the
+  # second time the second, and so on, the last repeating; lifted punishments do
+  # not count. An empty ladder is permanent (for a warning: expire-after). scope,
+  # if set, is used unless the command names one. Anything typed after the
+  # template is added to the reason.
+  templates:
+    hacking:
+      type: ban
+      reason: "Cheating"
+      scope: global
+      ladder: [7d, 30d, perm]
+    spam:
+      type: mute
+      reason: "Spamming"
+      ladder: [10m, 1h, 1d]
+    toxicity:
+      type: warn
+      reason: "Toxic behaviour"
+
+  # Warnings for chat the moderation filters held back (see moderation), given
+  # by issuer-name on the server the message was written on. They escalate like
+  # any other warning. A message that could not be checked at all is not held
+  # against anyone.
+  automod:
+    enabled: false
+    issuer-name: AutoMod
+    # At most one automatic warning per player this often, so a burst of
+    # flagged messages counts once.
+    cooldown: 5m
+    # Give this template instead of a plain warning, e.g. spam. Empty gives a
+    # warning.
+    template: ""
 
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
