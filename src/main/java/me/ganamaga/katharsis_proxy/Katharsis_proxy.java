@@ -27,7 +27,9 @@ import me.ganamaga.katharsis_proxy.database.AccountLinkRepository;
 import me.ganamaga.katharsis_proxy.database.AuthAccountRepository;
 import me.ganamaga.katharsis_proxy.database.ChatMessageRepository;
 import me.ganamaga.katharsis_proxy.database.DatabaseManager;
+import me.ganamaga.katharsis_proxy.database.PlayerHistoryRepository;
 import me.ganamaga.katharsis_proxy.database.PlayerRepository;
+import me.ganamaga.katharsis_proxy.database.PunishmentRepository;
 import me.ganamaga.katharsis_proxy.discord.DiscordAccountLinking;
 import me.ganamaga.katharsis_proxy.discord.DiscordBot;
 import me.ganamaga.katharsis_proxy.discord.DiscordChatRelay;
@@ -56,6 +58,7 @@ import me.ganamaga.katharsis_proxy.motd.generator.MineSkinUploader;
 import me.ganamaga.katharsis_proxy.motd.generator.TextureCache;
 import me.ganamaga.katharsis_proxy.player.PlayerDiscordChatCache;
 import me.ganamaga.katharsis_proxy.player.PlayerLanguageCache;
+import me.ganamaga.katharsis_proxy.punish.listener.SessionRecorder;
 import me.ganamaga.katharsis_proxy.util.DebugLog;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
@@ -130,6 +133,8 @@ public class Katharsis_proxy {
     private ChatMessageRepository chatMessages;
     private AccountLinkRepository accountLinkRepository;
     private AuthAccountRepository authAccounts;
+    private PlayerHistoryRepository playerHistory;
+    private PunishmentRepository punishments;
     private MotdLibrary motdLibrary;
     private DiscordBot discordBot;
     private AccountLinkService accountLinks;
@@ -258,12 +263,16 @@ public class Katharsis_proxy {
         chatMessages = new ChatMessageRepository(database);
         accountLinkRepository = new AccountLinkRepository(database);
         authAccounts = new AuthAccountRepository(database);
+        playerHistory = new PlayerHistoryRepository(database);
+        punishments = new PunishmentRepository(database);
         try {
             database.start(configManager.config().database());
             players.createTable();
             chatMessages.createTable();
             accountLinkRepository.createTables();
             authAccounts.createTable();
+            playerHistory.createTables();
+            punishments.createTable();
         } catch (SQLException e) {
             logger.error(RED + "Could not open the database; player data will not be stored.", e);
             database.close();
@@ -275,6 +284,7 @@ public class Katharsis_proxy {
         proxy.getEventManager().register(this,
                 new PlayerJoinListener(logger, languageRegistry, database, players, languageCache,
                         discordChatCache, firstJoinMenu));
+        proxy.getEventManager().register(this, new SessionRecorder(logger, playerHistory, Clock.systemUTC()));
         logger.info(GREEN + "Player entities will be created on first join.");
     }
 
