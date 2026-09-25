@@ -1,0 +1,266 @@
+# Build workflow for the Katharsis plugins.
+#
+#   Cleanup job    - runs first on master, and deletes the oldest runs'
+#                    artifacts whenever the repository's artifacts add up to
+#                    more than the size budget.
+#   Proxy job      - compiles the Velocity plugin, runs its unit tests, shades
+#                    the jar, then boots it on a real Velocity proxy.
+#   Companion job  - builds the Paper companion for the 1.21.x line on JDK 21,
+#                    runs its unit tests, then recompiles it against every
+#                    supported Paper API.
+#   Companion26    - builds the same sources for the 26.x line, which needs
+#                    JDK 25 because every 26.x API jar is a Java 25 artifact.
+#
+# Each build job uploads its own jar under its final name, on master only.
+#
+# The build jobs are independent: the plugins share a wire protocol, not code,
+# and each side pins the other's exact bytes in its own tests.
+
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+# A newer push to a pull request supersedes the run in progress. On master the
+# running build finishes and only the newest waiting one is kept, which batches
+# a burst of pushes into one build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  MAVEN_OPTS: -Xmx1024m
+  # Lives outside target/ so `mvn clean` cannot delete the cached download.
+  VELOCITY_CACHE_FOLDER: ${{ github.workspace }}/.velocity-cache
+  # The proxy and the companion's 1.21.x variant build on JDK 21.
+  JDK_VERSION: '21'
+  # The companion's 26.x variant cannot: every 26.x Paper API jar is compiled to
+  # Java 25 bytecode, which an older javac cannot read at all.
+  COMPANION_26_JDK_VERSION: '25'
+  # Only master keeps jars. A PR run would otherwise store its own copy against
+  # the artifact budget for a jar nobody downloads.
+  PUBLISH_JARS: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+
+jobs:
+  cleanup:
+    name: Prune artifacts over the size budget
+    # Pull requests store no jars, and a fork's token could not delete any.
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: write
+    env:
+      # Total size of the build artifacts this repository is allowed to keep.
+      # The oldest runs' artifacts are deleted until the stored total fits.
+      ARTIFACT_BUDGET_BYTES: 1073741824
+      # Newest runs held back from deletion no matter what, so a cleanup can
+      # never leave the repository without a downloadable jar.
+      ARTIFACT_KEEP_BUILDS: 1
+      # Set to true to log what would be deleted without deleting anything.
+      ARTIFACT_DRY_RUN: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Delete the oldest runs' artifacts over the budget
+        # Pruning is housekeeping. A permissions change or a transient API error
+        # must never stop the plugins from building, so this reports as a
+        # warning rather than failing the run.
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./ci/cleanup-artifacts.sh
+
+  proxy:
+    name: Velocity plugin
+    needs: cleanup
+    # Runs whether the cleanup ran, was skipped on a pull request, or failed.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # The integration test downloads Velocity and boots a JVM, so allow
+    # noticeably more than a plain compile would need.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Use JDK ${{ env.JDK_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JDK_VERSION }}
+
+      - name: Restore Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-proxy-${{ runner.os }}-${{ hashFiles('pom.xml') }}
+          restore-keys: |
+            maven-proxy-${{ runner.os }}-
+            maven-${{ runner.os }}-
+
+      - name: Restore Velocity download
+        uses: actions/cache@v4
+        with:
+          # Keyed on the pom so a version bump fetches the new jar. The test
+          # verifies the SHA-256 either way, so a stale entry cannot be used.
+          path: ${{ env.VELOCITY_CACHE_FOLDER }}
+          key: velocity-${{ runner.os }}-${{ hashFiles('pom.xml') }}
+
+      - name: Build, unit test, shade and boot on Velocity
+        run: |
+          mvn -B -ntp \
+            -Dvelocity.cache.dir="$VELOCITY_CACHE_FOLDER" \
+            clean verify
+
+      - name: Publish test results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Proxy tests (JDK ${{ env.JDK_VERSION }} and real Velocity server)
+          report_paths: |
+            target/surefire-reports/TEST-*.xml
+            target/failsafe-reports/TEST-*.xml
+          fail_on_failure: true
+          # A fork's token cannot create a check run; annotate the run instead.
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+
+      - name: Publish code coverage
+        if: ${{ !cancelled() }}
+        run: ./ci/coverage-summary.sh 'Proxy coverage' target/site/jacoco/jacoco.csv
+
+      - name: Upload the proxy jar
+        if: env.PUBLISH_JARS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: katharsis-proxy
+          # original-*.jar is the pre-shade jar and is not shipped; this glob
+          # does not match it.
+          path: target/katharsis_proxy-*.jar
+          if-no-files-found: error
+
+  companion:
+    name: Paper companion (1.21.x)
+    needs: cleanup
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # The compatibility check resolves a dependency tree per supported Paper
+    # version, which is slow the first time the Maven cache is cold.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Use JDK ${{ env.JDK_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JDK_VERSION }}
+
+      - name: Restore Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-companion-${{ runner.os }}-${{ hashFiles('paper/pom.xml') }}
+          restore-keys: |
+            maven-companion-${{ runner.os }}-
+            maven-${{ runner.os }}-
+
+      - name: Build and unit test the companion
+        run: mvn -B -ntp -f paper/pom.xml clean verify
+
+      - name: Compile against every supported Paper API
+        run: ./paper/compat-check.sh
+
+      - name: Publish companion test results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Companion 1.21.x tests (JDK ${{ env.JDK_VERSION }})
+          report_paths: paper/target/surefire-reports/TEST-*.xml
+          fail_on_failure: true
+          # A fork's token cannot create a check run; annotate the run instead.
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+
+      - name: Publish companion code coverage
+        if: ${{ !cancelled() }}
+        run: ./ci/coverage-summary.sh 'Companion 1.21.x coverage' paper/target/site/jacoco/jacoco.csv
+
+      - name: Upload the companion jar
+        if: env.PUBLISH_JARS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: katharsis-companion
+          path: |
+            paper/target/katharsis_paper-*.jar
+            !paper/target/katharsis_paper-*-mc26.jar
+          if-no-files-found: error
+
+  companion26:
+    name: Paper companion (26.x)
+    needs: cleanup
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Use JDK ${{ env.COMPANION_26_JDK_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.COMPANION_26_JDK_VERSION }}
+
+      - name: Restore Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-companion26-${{ runner.os }}-${{ hashFiles('paper/pom.xml') }}
+          restore-keys: |
+            maven-companion26-${{ runner.os }}-
+            maven-companion-${{ runner.os }}-
+            maven-${{ runner.os }}-
+
+      - name: Build and unit test the 26.x variant
+        run: mvn -B -ntp -f paper/pom.xml -P paper-26 clean verify
+
+      - name: Compile against every supported Paper API (full range)
+        # This JDK can read both lines' APIs, so --strict here proves the whole
+        # range was checked rather than just the half JDK 21 reaches.
+        run: ./paper/compat-check.sh --strict
+
+      - name: Publish 26.x test results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: Companion 26.x tests (JDK ${{ env.COMPANION_26_JDK_VERSION }})
+          report_paths: paper/target/surefire-reports/TEST-*.xml
+          fail_on_failure: true
+          # A fork's token cannot create a check run; annotate the run instead.
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+
+      - name: Upload the 26.x companion jar
+        if: env.PUBLISH_JARS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: katharsis-companion-26
+          path: paper/target/katharsis_paper-*-mc26.jar
+          if-no-files-found: error

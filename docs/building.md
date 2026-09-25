@@ -105,7 +105,7 @@ This matters because the unit tests load unrelocated classes and **cannot** catc
 a broken shade configuration, a missing resource, or a Guice wiring mistake.
 
 The downloaded Velocity jar is cached in `target/velocity`. Point it elsewhere
-with `-Dvelocity.cache.dir=...` to keep it across a `clean` — the pipeline does
+with `-Dvelocity.cache.dir=...` to keep it across a `clean` — CI does
 this so the download can be cached between runs.
 
 ## Output
@@ -123,26 +123,32 @@ so such a test could not be run and was not written rather than shipped unproven
 `PluginDescriptorTest` covers the part that would otherwise only fail at load
 time — it already caught an `api-version` that did not match the compiled API.
 
-## Pipeline
+## CI
 
-`azure-pipelines.yml` runs on pushes and pull requests to `master`:
+`.github/workflows/build.yml` runs on pushes and pull requests to `master`, and
+can be started by hand from the Actions tab:
 
-1. **Build** — two independent jobs:
+1. **Cleanup** — pushes only: `ci/cleanup-artifacts.sh` deletes the oldest runs'
+   artifacts until the repository's unexpired artifacts fit a 1 GiB budget,
+   always keeping the newest run's. It is non-fatal, so a failure there never
+   blocks a build. Its selection logic is tested by `ci/cleanup-artifacts-test.sh`
+   against a mock of the GitHub API.
+2. **Build** — three independent jobs:
    - *Velocity plugin*: restores the Maven and Velocity caches, runs
-     `mvn clean verify`, publishes unit and integration results plus coverage,
-     and uploads the shaded jar as `proxy-plugin`.
-   - *Paper companion (1.21.x)*: on the preinstalled JDK 21, runs
+     `mvn clean verify`, reports unit and integration results plus coverage,
+     and uploads the shaded jar as `katharsis-proxy`.
+   - *Paper companion (1.21.x)*: on JDK 21, runs
      `mvn -f paper/pom.xml clean verify`, then `compat-check.sh`. That check
      covers the 1.21.x half of the range and reports the 26.x versions as
-     skipped, since JDK 21 cannot read them. Uploads `companion-plugin`.
-   - *Paper companion (26.x)*: fetches a JDK 25, builds with `-P paper-26`, and
-     runs `compat-check.sh --strict` — on that JDK nothing can be skipped, so
-     this is where the **full** range is proven. Uploads `companion-plugin-26`.
-2. **Publish** — master only: retains all three jars as build artifacts.
+     skipped, since JDK 21 cannot read them. Uploads `katharsis-companion`.
+   - *Paper companion (26.x)*: on JDK 25, builds with `-P paper-26`, and runs
+     `compat-check.sh --strict` — on that JDK nothing can be skipped, so this is
+     where the **full** range is proven. Uploads `katharsis-companion-26`.
 
-The proxy and 1.21.x companion jobs use the agent's preinstalled JDK 21. Only
-the 26.x job fetches a JDK, so a problem there cannot stop the other artifacts
-being produced.
+Jars are only uploaded from `master`; pull request runs build and test but keep
+nothing. JDKs come from `actions/setup-java` (Temurin), so a problem fetching
+JDK 25 cannot stop the other artifacts being produced.
 
-Test results are published with `condition: succeededOrFailed()`, so a failing
-run still shows which tests failed rather than only that the build broke.
+Test results are reported with `!cancelled()`, so a failing run still shows
+which tests failed rather than only that the build broke. Coverage is written to
+the run's summary page by `ci/coverage-summary.sh`.
