@@ -72,6 +72,8 @@ public class PunishmentsConfig {
 
     private PunishDiscordConfig discord = new PunishDiscordConfig();
 
+    private PunishWebConfig web = new PunishWebConfig();
+
     public boolean enabled() {
         return enabled;
     }
@@ -149,6 +151,10 @@ public class PunishmentsConfig {
 
     public PunishDiscordConfig discord() {
         return discord == null ? new PunishDiscordConfig() : discord;
+    }
+
+    public PunishWebConfig web() {
+        return web == null ? new PunishWebConfig() : web;
     }
 
     private static DefaultScope parseScope(String value, DefaultScope fallback) {

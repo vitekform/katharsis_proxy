@@ -32,6 +32,7 @@ import me.ganamaga.katharsis_proxy.config.ConfigManager;
 import me.ganamaga.katharsis_proxy.config.DiscordConfig;
 import me.ganamaga.katharsis_proxy.config.MotdConfig;
 import me.ganamaga.katharsis_proxy.config.MotdMode;
+import me.ganamaga.katharsis_proxy.config.PunishWebConfig;
 import me.ganamaga.katharsis_proxy.config.PunishmentsConfig;
 import me.ganamaga.katharsis_proxy.database.AccountLinkRepository;
 import me.ganamaga.katharsis_proxy.database.AuthAccountRepository;
@@ -96,11 +97,13 @@ import me.ganamaga.katharsis_proxy.punish.listener.PunishmentLoginListener;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentServerListener;
 import me.ganamaga.katharsis_proxy.punish.listener.SessionRecorder;
 import me.ganamaga.katharsis_proxy.util.DebugLog;
+import me.ganamaga.katharsis_proxy.web.PunishmentWebSync;
 import org.slf4j.Logger;
 import org.spongepowered.configurate.ConfigurateException;
 
 import java.awt.*;
 import java.io.IOException;
+import java.net.http.HttpClient;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -113,6 +116,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -180,6 +185,9 @@ public class Katharsis_proxy {
     private PunishmentRepository punishments;
     private PunishmentService punishmentService;
     private MuteEnforcer muteEnforcer;
+
+    /** Null unless punishments.web is on. */
+    private PunishmentWebSync punishmentWebSync;
     private AutoWarn autoWarn;
     private PermissionLookup permissionLookup;
     private SessionRecorder sessionRecorder;
@@ -228,6 +236,9 @@ public class Katharsis_proxy {
             accountLinks.clearCache();
         }
         // Before the database closes, in case queued tasks still read from it.
+        if (punishmentWebSync != null) {
+            punishmentWebSync.stop();
+        }
         if (discordBot != null) {
             discordBot.stop();
         }
@@ -342,6 +353,33 @@ public class Katharsis_proxy {
     }
 
     /**
+     * Starts pushing punishments to the website's public list, when that is
+     * turned on in punishments.web. Only reads config at startup; the url and
+     * token are re-read for every request, so a reload picks them up.
+     */
+    private void setUpPunishmentWebSync() {
+        PunishWebConfig web = configManager.config().punishments().web();
+        if (!web.enabled()) {
+            return;
+        }
+        if (PunishmentWebSync.endpoint(web.url()) == null || web.token().isEmpty()) {
+            logger.warn("punishments.web is enabled but url or token is missing; punishments are not published.");
+            return;
+        }
+        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "katharsis-punishment-web");
+            thread.setDaemon(true);
+            return thread;
+        });
+        punishmentWebSync = new PunishmentWebSync(logger, HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(web.timeoutSeconds())).build(),
+                punishments, () -> configManager.config().punishments().web(), executor);
+        punishmentService.addObserver(punishmentWebSync);
+        punishmentWebSync.start();
+        logger.info("Publishing punishments to {}.", web.url());
+    }
+
+    /**
      * Sets up bans, mutes, kicks and warnings: the checks at login, their
      * enforcement, and the staff commands. Needs the database; without it
      * nothing can be issued or checked, so nothing is registered.
@@ -378,6 +416,7 @@ public class Katharsis_proxy {
         punishmentService.addObserver(new DiscordPunishmentLog(logger, discordBot,
                 () -> configManager.config().punishments(),
                 () -> configManager.config().moderation().staffChannelId()));
+        setUpPunishmentWebSync();
         muteEnforcer = new MuteEnforcer(proxy, logger, punishmentService, scopes, text,
                 () -> configManager.config().punishments());
         punishmentService.addObserver(muteEnforcer);
