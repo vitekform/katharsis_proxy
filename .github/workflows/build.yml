@@ -55,7 +55,10 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # A job's permissions replace the workflow's, so contents: read has to be
+    # restated here or checkout cannot read this private repository.
     permissions:
+      contents: read
       actions: write
     env:
       # Total size of the build artifacts this repository is allowed to keep.
