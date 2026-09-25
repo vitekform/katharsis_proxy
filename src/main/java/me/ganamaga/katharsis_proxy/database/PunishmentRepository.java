@@ -79,6 +79,9 @@ public final class PunishmentRepository {
 
     private static final String SELECT_BY_ID = "SELECT " + COLUMNS + " FROM katharsis_punishments WHERE id = ?";
 
+    private static final String SELECT_PAGE = "SELECT " + COLUMNS
+            + " FROM katharsis_punishments WHERE id > ? ORDER BY id LIMIT ?";
+
     /** Lasting, unrevoked, and not run out; the target clause is filled in per query. */
     private static final String ACTIVE = """
             type <> 'KICK' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > ?)""";
@@ -158,6 +161,21 @@ public final class PunishmentRepository {
             try (ResultSet results = statement.executeQuery()) {
                 return results.next() ? Optional.of(read(results)) : Optional.empty();
             }
+        }
+    }
+
+    /**
+     * Up to {@code limit} punishments with an id above {@code afterId},
+     * lowest id first, revoked and expired included. Paging on the id rather
+     * than an offset keeps a walk over the whole table steady while new rows
+     * are being added.
+     */
+    public List<Punishment> findPage(long afterId, int limit) throws SQLException {
+        try (Connection connection = database.getConnection();
+             PreparedStatement statement = connection.prepareStatement(SELECT_PAGE)) {
+            statement.setLong(1, afterId);
+            statement.setInt(2, limit);
+            return readAll(statement);
         }
     }
 

@@ -445,6 +445,24 @@ punishments:
     commands-enabled: false
     staff-role-ids: []
 
+  # The public punishment list on the website (kathars.eu/punishments). Every
+  # punishment issued and lifted is sent as it happens, and the whole list is
+  # sent again at startup and every resync-minutes, which catches up anything
+  # missed while the website was down. Addresses are never sent, and
+  # punishments on an address alone are not published.
+  web:
+    enabled: false
+    # The website's address; /api/kathars/integration/punishments is added.
+    url: "https://kathars.eu"
+    # The website's KATHARS_INTEGRATION_TOKEN.
+    token: ""
+    # Also publish punishments given quietly with -s.
+    include-silent: false
+    # Minutes between full sends; 0 sends the whole list only at startup.
+    resync-minutes: 30
+    # How long to wait for the website to answer one request.
+    timeout-seconds: 10
+
   # Warnings, given with /warn, lifted with /unwarn and listed with /warns.
   warns:
     # How long a warning counts towards escalation: a length such as 30d, or

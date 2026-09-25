@@ -76,6 +76,22 @@ class PunishmentRepositoryTest {
     }
 
     @Test
+    @DisplayName("pages walk the table by id, revoked rows included")
+    void pagesById() throws SQLException {
+        Punishment first = punishments.insert(ban(UUID.randomUUID(), null));
+        Punishment second = punishments.insert(ban(UUID.randomUUID(), null));
+        Punishment third = punishments.insert(ban(UUID.randomUUID(), null));
+        punishments.revoke(second.id(), new Punishment.Revocation(NOW, STAFF, null));
+
+        List<Punishment> page = punishments.findPage(0L, 2);
+        assertEquals(List.of(first.id(), second.id()), page.stream().map(Punishment::id).toList());
+        assertTrue(page.get(1).isRevoked());
+        assertEquals(List.of(third.id()),
+                punishments.findPage(second.id(), 2).stream().map(Punishment::id).toList());
+        assertTrue(punishments.findPage(third.id(), 2).isEmpty());
+    }
+
+    @Test
     @DisplayName("ids keep counting up")
     void idsIncrease() throws SQLException {
         long first = punishments.insert(ban(UUID.randomUUID(), null)).id();

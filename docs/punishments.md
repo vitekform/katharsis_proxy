@@ -232,6 +232,29 @@ With the Discord bot running (see the `discord` section of `config.yml`):
   is hidden from members without Moderate Members by default; Discord's server
   settings can change who sees it, but not who may use it.
 
+## Website
+
+With `punishments.web` on, the proxy fills the public punishment list on the
+website (`kathars.eu/punishments`, served by the nextgen backend). Set `url` to
+the website and `token` to the same secret as the backend's
+`KATHARS_INTEGRATION_TOKEN`.
+
+- Every punishment issued and lifted is `POST`ed to
+  `/api/kathars/integration/punishments` as it happens, with the token in
+  `X-Kathars-Token`.
+- The whole table is sent again at startup and every `resync-minutes`, 200 at a
+  time. The website matches rows by id, so sending one twice changes nothing,
+  and anything lost while it was down is caught up by the next full send. An
+  outage is logged once, not once per punishment.
+- What is sent: id, type, the player's uuid and name, the reason, the server or
+  group (none for global), who issued it and from where, when it was issued,
+  when it runs out, and when and by whom it was lifted. **Addresses are never
+  sent**, and neither are the reasons given for lifting.
+- Punishments on an address alone are not published, and neither are quiet
+  ones given with `-s` unless `include-silent` is on. Their ids are sent as
+  removed instead, so turning `include-silent` off takes them back down at the
+  next full send.
+
 ## When the database is down
 
 Nothing can be issued or checked. With `fail-closed: false` (the default),
