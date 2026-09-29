@@ -1,0 +1,26 @@
+modLoader = "javafml"
+loaderVersion = "[1,)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "katharsis"
+version = "${mod_version}"
+displayName = "Katharsis"
+description = '''
+Backend companion for the Katharsis Velocity proxy. Holds every player who
+joins in place until the proxy says they have logged in. Server-side only.
+'''
+
+[[dependencies.katharsis]]
+modId = "neoforge"
+type = "required"
+versionRange = "${neo_version_range}"
+ordering = "NONE"
+side = "SERVER"
+
+[[dependencies.katharsis]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "SERVER"

@@ -1,0 +1,106 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'jacoco'
+}
+
+/*
+ * One jar per stretch of Minecraft releases the same bytecode runs on. Each is
+ * built against the OLDEST NeoForge in its stretch: a mod compiled against an
+ * old API links against newer ones, never the reverse. compat-check.sh proves
+ * the code still compiles against the newest release of every Minecraft
+ * version in between.
+ *
+ *   ./gradlew build                    1.21.1 - 1.21.10   Java 21
+ *   ./gradlew build -Pline=1.21.11     1.21.11            Java 21  (ResourceLocation became Identifier)
+ *   ./gradlew build -Pline=26          26.1.2 - 26.x      Java 25  (every 26.x NeoForge jar is Java 25 bytecode)
+ *
+ * -Pneo_version=... compiles against another NeoForge of the same line, which
+ * is how compat-check.sh walks the range.
+ */
+def lines = [
+        '1.21'   : [neo: '21.1.252', java: 21, ids: 'resourcelocation',
+                    minecraft: '[1.21.1,1.21.11)', neoRange: '[21.1,21.11)', classifier: ''],
+        '1.21.11': [neo: '21.11.45', java: 21, ids: 'identifier',
+                    minecraft: '[1.21.11,1.22)', neoRange: '[21.11,22)', classifier: 'mc1.21.11'],
+        '26'     : [neo: '26.1.2.112', java: 25, ids: 'identifier',
+                    minecraft: '[26.1.2,27)', neoRange: '[26.1.2,27)', classifier: 'mc26'],
+]
+def lineName = findProperty('line') ?: '1.21'
+def line = lines[lineName]
+if (line == null) {
+    throw new GradleException("Unknown line '${lineName}'; pick one of ${lines.keySet()}")
+}
+
+version = mod_version
+group = 'me.ganamaga'
+base.archivesName = 'katharsis_neoforge'
+tasks.named('jar') {
+    archiveClassifier = line.classifier
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(line.java as int)
+
+sourceSets.main.java.srcDir "src/${line.ids}/java"
+
+neoForge {
+    version = findProperty('neo_version') ?: line.neo
+
+    mods {
+        katharsis {
+            sourceSet sourceSets.main
+        }
+    }
+
+    // ./gradlew runServer: a dedicated server in run/ with the mod loaded, to
+    // put behind a local Velocity. Set online-mode=false in run/server.properties.
+    runs {
+        server {
+            server()
+            gameDirectory = file('run')
+            programArgument '--nogui'
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform("org.junit:junit-bom:${junit_version}")
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// neoforge.mods.toml with this line's version ranges filled in.
+def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    def properties = [
+            mod_version            : version,
+            minecraft_version_range: line.minecraft,
+            neo_version_range      : line.neoRange,
+    ]
+    inputs.properties properties
+    expand properties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+sourceSets.main.resources.srcDir generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-Xlint:all' << '-Xlint:-processing' << '-Werror'
+}
+
+test {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+jacocoTestReport {
+    reports {
+        csv.required = true
+        xml.required = false
+        html.required = false
+    }
+}

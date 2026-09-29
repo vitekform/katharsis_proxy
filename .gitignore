@@ -111,3 +111,9 @@ buildNumber.properties
 
 # Common working directory
 run/
+
+# NeoForge mod (Gradle)
+neoforge/build/
+neoforge/.gradle/
+neoforge/run/
+!neoforge/gradle/wrapper/gradle-wrapper.jar

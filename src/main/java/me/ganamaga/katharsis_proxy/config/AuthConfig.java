@@ -2,6 +2,9 @@ package me.ganamaga.katharsis_proxy.config;
 
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * The {@code auth} section of {@code config.yml}: the password every player
  * without a Mojang account logs in with.
@@ -44,6 +47,13 @@ public class AuthConfig {
 
     private Argon2Config argon2 = new Argon2Config();
 
+    /**
+     * Servers, named as in velocity.toml, running the Katharsis NeoForge mod.
+     * Players sent there first log in on the server itself rather than in the
+     * void, which a modded client may refuse to enter.
+     */
+    private List<String> loginServers = new ArrayList<>();
+
     public boolean enabled() {
         return enabled;
     }
@@ -78,6 +88,10 @@ public class AuthConfig {
 
     public Argon2Config argon2() {
         return argon2 == null ? new Argon2Config() : argon2;
+    }
+
+    public List<String> loginServers() {
+        return loginServers == null ? List.of() : List.copyOf(loginServers);
     }
 
     /**

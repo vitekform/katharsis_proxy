@@ -7,6 +7,7 @@ import com.velocitypowered.api.event.command.CommandExecuteEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.PreLoginEvent;
+import com.velocitypowered.api.event.player.PlayerChatEvent;
 import com.velocitypowered.api.event.player.ServerPreConnectEvent;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -27,6 +28,9 @@ import java.sql.SQLException;
  * command and every server connection until the player has logged in. The void
  * already keeps them from both; this is the second lock, so a player who ends
  * up outside it for any reason is still stopped.</p>
+ *
+ * <p>The one exception is a login server, where {@link BackendLogin} holds the
+ * player instead of the void.</p>
  */
 public final class AuthGateListener {
 
@@ -38,13 +42,17 @@ public final class AuthGateListener {
     /** Without the void there is nowhere to log in, so password players cannot join. */
     private final boolean voidAvailable;
 
+    /** Where players whose client cannot enter the void log in instead. */
+    private final BackendLogin backendLogin;
+
     public AuthGateListener(ProxyServer proxy, Logger logger, AuthService auth, Messages messages,
-                            boolean voidAvailable) {
+                            boolean voidAvailable, BackendLogin backendLogin) {
         this.proxy = proxy;
         this.logger = logger;
         this.auth = auth;
         this.messages = messages;
         this.voidAvailable = voidAvailable;
+        this.backendLogin = backendLogin;
     }
 
     @Subscribe(order = PostOrder.LATE)
@@ -60,7 +68,10 @@ public final class AuthGateListener {
                 case AuthService.JoinDecision.Premium ignored ->
                         event.setResult(PreLoginEvent.PreLoginComponentResult.forceOnlineMode());
                 case AuthService.JoinDecision.Password ignored -> {
-                    if (!voidAvailable) {
+                    boolean loginServer = backendLogin.servers().isFirstServerFor(
+                            event.getConnection().getVirtualHost(), proxy.getConfiguration().getForcedHosts(),
+                            proxy.getConfiguration().getAttemptConnectionOrder());
+                    if (!voidAvailable && !loginServer) {
                         event.setResult(PreLoginEvent.PreLoginComponentResult.denied(
                                 render(MessageKey.AUTH_UNAVAILABLE)));
                     }
@@ -95,19 +106,39 @@ public final class AuthGateListener {
         });
     }
 
+    /**
+     * Nothing a player types before logging in goes anywhere. On a login server
+     * this is also how {@code /login} reaches their session: the command, and
+     * the password in it, stops here instead of reaching the server.
+     */
     @Subscribe(order = PostOrder.FIRST)
     public void onCommand(CommandExecuteEvent event) {
         if (event.getCommandSource() instanceof Player player && !auth.isAuthenticated(player.getUniqueId(), player)) {
             event.setResult(CommandExecuteEvent.CommandResult.denied());
+            backendLogin.input(player, "/" + event.getCommand());
         }
     }
 
+    /**
+     * Chat on a login server only earns a reminder of how to log in. It is left
+     * to go through, because cancelling signed chat here disconnects the
+     * client; the mod drops it on the server before anything reads it.
+     */
+    @Subscribe(order = PostOrder.FIRST)
+    public void onChat(PlayerChatEvent event) {
+        Player player = event.getPlayer();
+        if (!auth.isAuthenticated(player.getUniqueId(), player)) {
+            backendLogin.input(player, event.getMessage());
+        }
+    }
+
+    /** Players who have not logged in may reach a login server, and nothing else. */
     @Subscribe(order = PostOrder.FIRST)
     public void onServerPreConnect(ServerPreConnectEvent event) {
         Player player = event.getPlayer();
-        if (!auth.isAuthenticated(player.getUniqueId(), player)) {
-            logger.warn("Kept {} off '{}': they have not logged in.",
-                    player.getUsername(), event.getOriginalServer().getServerInfo().getName());
+        String target = event.getOriginalServer().getServerInfo().getName();
+        if (!auth.isAuthenticated(player.getUniqueId(), player) && !backendLogin.servers().contains(target)) {
+            logger.warn("Kept {} off '{}': they have not logged in.", player.getUsername(), target);
             event.setResult(ServerPreConnectEvent.ServerResult.denied());
         }
     }

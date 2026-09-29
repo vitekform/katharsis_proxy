@@ -18,12 +18,11 @@ import net.elytrium.limboapi.api.event.LoginLimboRegisterEvent;
 import net.elytrium.limboapi.api.player.GameMode;
 import net.elytrium.limboapi.api.player.LimboPlayer;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.title.Title;
 import org.slf4j.Logger;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -53,10 +52,13 @@ public final class AuthLimbo {
     private final AuthConfig config;
     private final Executor executor;
 
+    /** Players who log in on a login server instead, see {@link BackendLogin}. */
+    private final Predicate<Player> logsInOnServer;
+
     private Limbo limbo;
 
     public AuthLimbo(Object plugin, ProxyServer proxy, Logger logger, AuthService auth, Messages messages,
-                     AuthConfig config, Executor executor) {
+                     AuthConfig config, Executor executor, Predicate<Player> logsInOnServer) {
         this.plugin = plugin;
         this.proxy = proxy;
         this.logger = logger;
@@ -64,6 +66,7 @@ public final class AuthLimbo {
         this.messages = messages;
         this.config = config;
         this.executor = executor;
+        this.logsInOnServer = logsInOnServer;
     }
 
     /** Builds the world and starts holding new players in it. */
@@ -100,7 +103,7 @@ public final class AuthLimbo {
         if (player.isOnlineMode()) {
             auth.markAuthenticated(player.getUniqueId(), player);
         }
-        if (auth.isAuthenticated(player.getUniqueId(), player)) {
+        if (auth.isAuthenticated(player.getUniqueId(), player) || logsInOnServer.test(player)) {
             return;
         }
         event.addOnJoinCallback(() -> limbo.spawnPlayer(player, new Handler(player)));
@@ -145,17 +148,7 @@ public final class AuthLimbo {
 
         @Override
         public void prompt(boolean registered) {
-            String language = messages.languageOf(player);
-            // Held for the whole login window; it goes when they leave the void.
-            Title.Times times = Title.Times.times(Duration.ofMillis(500),
-                    Duration.ofSeconds(config.loginTimeoutSeconds()), Duration.ofMillis(500));
-            player.showTitle(Title.title(
-                    messages.render(language, MessageKey.AUTH_TITLE),
-                    messages.render(language, registered
-                            ? MessageKey.AUTH_SUBTITLE_LOGIN
-                            : MessageKey.AUTH_SUBTITLE_REGISTER),
-                    times));
-            message(registered ? MessageKey.AUTH_PROMPT_LOGIN : MessageKey.AUTH_PROMPT_REGISTER);
+            AuthPrompt.show(messages, config, player, registered);
         }
 
         @Override

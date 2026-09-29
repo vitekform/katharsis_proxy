@@ -10,6 +10,10 @@
 #                    supported Paper API.
 #   Companion26    - builds the same sources for the 26.x line, which needs
 #                    JDK 25 because every 26.x API jar is a Java 25 artifact.
+#   NeoForge job   - builds the NeoForge mod's three jars (1.21.1-1.21.10,
+#                    1.21.11 and 26.x) and runs its unit tests.
+#   NeoForge compat- recompiles the mod against the newest NeoForge of every
+#                    Minecraft version in the supported range.
 #
 # Each build job uploads its own jar under its final name, on master only.
 #
@@ -267,3 +271,82 @@ jobs:
           name: katharsis-companion-26
           path: paper/target/katharsis_paper-*-mc26.jar
           if-no-files-found: error
+
+  neoforge:
+    name: NeoForge mod
+    needs: cleanup
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # Each line has Minecraft decompiled and recompiled on a cold cache.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # JDK 21 for the 1.21 lines, JDK 25 for the 26 line; Gradle runs on the
+      # last one listed and finds the other as a toolchain.
+      - name: Use JDK 21 and ${{ env.COMPANION_26_JDK_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: |
+            ${{ env.JDK_VERSION }}
+            ${{ env.COMPANION_26_JDK_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build and unit test every line
+        working-directory: neoforge
+        run: |
+          ./gradlew --no-daemon build
+          ./gradlew --no-daemon build -Pline=1.21.11
+          ./gradlew --no-daemon build -Pline=26
+
+      - name: Publish NeoForge test results
+        if: ${{ !cancelled() }}
+        uses: mikepenz/action-junit-report@v5
+        with:
+          check_name: NeoForge mod tests
+          report_paths: neoforge/build/test-results/test/TEST-*.xml
+          fail_on_failure: true
+          # A fork's token cannot create a check run; annotate the run instead.
+          annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
+
+      - name: Upload the NeoForge jars
+        if: env.PUBLISH_JARS == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: katharsis-neoforge
+          path: neoforge/build/libs/katharsis_neoforge-*.jar
+          if-no-files-found: error
+
+  neoforge-compat:
+    name: NeoForge mod (every supported version)
+    needs: cleanup
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    # Thirteen NeoForge versions, each decompiled and recompiled on a cold cache.
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Use JDK 21 and ${{ env.COMPANION_26_JDK_VERSION }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: |
+            ${{ env.JDK_VERSION }}
+            ${{ env.COMPANION_26_JDK_VERSION }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Compile against every supported NeoForge
+        run: ./neoforge/compat-check.sh

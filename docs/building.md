@@ -11,13 +11,15 @@
 API jar is a Java 25 artifact that an older `javac` cannot read. The 1.21.x
 variant, the proxy and all the tests build on JDK 21.
 
-This repository holds two plugins, built separately:
+This repository holds three projects, built separately:
 
 - the root project — the Velocity proxy plugin
 - `paper/` — the Paper companion, see [companion-plugin.md](companion-plugin.md)
+- `neoforge/` — the NeoForge mod that lets players log in on modded servers,
+  see [authentication.md](authentication.md#modded-servers). It builds with
+  Gradle (the wrapper is checked in), since NeoForge's tooling is Gradle-only.
 
-They share a wire protocol, not code, so neither depends on the other at build
-time.
+They share a wire protocol, not code, so none depends on another at build time.
 
 ## Commands
 
@@ -48,6 +50,33 @@ The first needs JDK 21 and produces the 1.21.x jar; the second needs JDK 25 and
 produces `katharsis_paper-<version>-mc26.jar`. See
 [companion-plugin.md](companion-plugin.md#supported-versions) for why they are
 separate builds.
+
+The NeoForge mod has three lines, one per break in the API it uses:
+
+```bash
+cd neoforge && ./gradlew build
+```
+
+```bash
+cd neoforge && ./gradlew build -Pline=1.21.11
+```
+
+```bash
+cd neoforge && ./gradlew build -Pline=26
+```
+
+| Line      | Minecraft          | Built against | JDK | Jar                                     |
+|-----------|--------------------|---------------|-----|-----------------------------------------|
+| (default) | 1.21.1 – 1.21.10   | NeoForge 21.1 | 21  | `katharsis_neoforge-<version>.jar`         |
+| `1.21.11` | 1.21.11            | NeoForge 21.11| 21  | `katharsis_neoforge-<version>-mc1.21.11.jar` |
+| `26`      | 26.1.2 – 26.x      | NeoForge 26.1 | 25  | `katharsis_neoforge-<version>-mc26.jar`    |
+
+1.21.11 renamed `ResourceLocation` to `Identifier`, the one type the mod names
+that changed, and the 26 line is Java 25 bytecode. Each line is built against
+the oldest NeoForge it covers. `neoforge/compat-check.sh` compiles the mod
+against the newest NeoForge of every Minecraft version in between. The first
+time, each version has Minecraft decompiled for it, which takes a few minutes.
+Gradle finds JDK 21 and 25 wherever they are installed.
 
 Other useful invocations:
 
@@ -114,6 +143,8 @@ this so the download can be cached between runs.
 - `target/original-katharsis_proxy-<version>.jar` — pre-shade, not shipped
 - `paper/target/katharsis_paper-<version>.jar` — the companion for Paper 1.21.x
 - `paper/target/katharsis_paper-<version>-mc26.jar` — the companion for Paper 26.x
+- `neoforge/build/libs/katharsis_neoforge-<version>*.jar` — the NeoForge mod, one
+  jar per line
 - `target/site/jacoco/` — coverage report
 - `target/surefire-reports/`, `target/failsafe-reports/` — JUnit XML
 
@@ -144,6 +175,10 @@ can be started by hand from the Actions tab:
    - *Paper companion (26.x)*: on JDK 25, builds with `-P paper-26`, and runs
      `compat-check.sh --strict` — on that JDK nothing can be skipped, so this is
      where the **full** range is proven. Uploads `katharsis-companion-26`.
+   - *NeoForge mod*: with JDK 21 and 25 installed, builds and tests all three
+     lines and uploads their jars as `katharsis-neoforge`.
+   - *NeoForge mod (every supported version)*: runs `neoforge/compat-check.sh`.
+     It is the slowest job by far, since it sets up thirteen NeoForge versions.
 
 Jars are only uploaded from `master`; pull request runs build and test but keep
 nothing. JDKs come from `actions/setup-java` (Temurin), so a problem fetching

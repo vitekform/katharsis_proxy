@@ -316,6 +316,22 @@ auth:
   mojang-url: https://api.mojang.com/users/profiles/minecraft/
   mojang-timeout-ms: 5000
 
+  # Servers, named as in velocity.toml, where players log in on the server
+  # itself instead of in the void. A NeoForge client whose mods the server must
+  # also have cannot enter the void, which is a vanilla world, so list modded
+  # servers here. Each one must run the Katharsis NeoForge mod, which holds
+  # every player who joins in place, able to do nothing, until they have logged
+  # in; a listed server that turns out not to run it has its players
+  # disconnected.
+  #
+  # A player skips the void when the server Velocity would send them to first
+  # is one of these: the forced host for the address they joined through, or
+  # the first server of the try list.
+  #
+  # login-servers:
+  #   - modded
+  login-servers: []
+
   # Cost of hashing each password. The defaults are OWASP's recommended
   # minimum for Argon2id. Raising them makes stolen hashes harder to crack and
   # every login slower; existing passwords are rehashed with the new settings

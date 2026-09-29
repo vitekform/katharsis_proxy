@@ -13,6 +13,8 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import me.ganamaga.katharsis_proxy.auth.AuthGateListener;
 import me.ganamaga.katharsis_proxy.auth.AuthLimbo;
 import me.ganamaga.katharsis_proxy.auth.AuthService;
+import me.ganamaga.katharsis_proxy.auth.BackendLogin;
+import me.ganamaga.katharsis_proxy.auth.LoginServers;
 import me.ganamaga.katharsis_proxy.auth.MojangProfiles;
 import me.ganamaga.katharsis_proxy.auth.PasswordHasher;
 import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
@@ -55,6 +57,7 @@ import me.ganamaga.katharsis_proxy.link.AccountLinkService;
 import me.ganamaga.katharsis_proxy.listener.AccountLinkJoinListener;
 import me.ganamaga.katharsis_proxy.listener.FirstJoinMenuListener;
 import me.ganamaga.katharsis_proxy.listener.PlayerJoinListener;
+import me.ganamaga.katharsis_proxy.messaging.AuthChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
@@ -549,11 +552,18 @@ public class Katharsis_proxy {
      * empty LimboAPI world, before they reach any server. Fails closed: without
      * LimboAPI, or without the database, such players are refused at the door
      * rather than let in unchecked.
+     *
+     * <p>Players sent to a login server log in there instead, held in place by
+     * the Katharsis NeoForge mod. The auth channel is opened either way: a
+     * server running the mod holds everyone who joins until the proxy lets
+     * them go.</p>
      */
     private void setUpAuth() {
         AuthConfig config = configManager.config().auth();
+        proxy.getChannelRegistrar().register(AuthChannel.IDENTIFIER);
         if (!config.enabled()) {
             logger.warn(RED + "auth.enabled is false: on an offline-mode proxy anyone can join under any name.");
+            proxy.getEventManager().register(this, BackendLogin.unlockingEveryone(this, proxy, logger));
             return;
         }
 
@@ -570,17 +580,33 @@ public class Katharsis_proxy {
                 new MojangProfiles(logger, config.mojangUrl(), Duration.ofMillis(config.mojangTimeoutMs())),
                 config.premiumSkip(), Clock.systemUTC());
 
+        LoginServers loginServers = new LoginServers(config.loginServers());
+        BackendLogin backendLogin = new BackendLogin(this, proxy, logger, auth, messages, config, authExecutor,
+                loginServers);
+        proxy.getEventManager().register(this, backendLogin);
+        if (!loginServers.isEmpty()) {
+            logger.info(GREEN + "Players sent to {} log in on the server itself.", config.loginServers());
+            for (String name : config.loginServers()) {
+                if (proxy.getServer(name).isEmpty()) {
+                    logger.warn(RED + "auth.login-servers names '{}', which is not a server in velocity.toml.", name);
+                }
+            }
+        }
+
         // Asked of Velocity rather than of AuthLimbo, which cannot even be loaded without LimboAPI.
         boolean limboInstalled = proxy.getPluginManager().isLoaded(LIMBOAPI_ID);
         if (limboInstalled) {
-            authLimbo = new AuthLimbo(this, proxy, logger, auth, messages, config, authExecutor);
+            authLimbo = new AuthLimbo(this, proxy, logger, auth, messages, config, authExecutor,
+                    backendLogin::logsInOnServer);
             authLimbo.start();
             logger.info(GREEN + "Players without a Mojang account log in from an empty void.");
         } else {
             logger.warn(RED + "LimboAPI is not installed, so players without a Mojang account have nowhere to "
-                    + "log in and will be refused. Install it from https://github.com/Elytrium/LimboAPI");
+                    + "log in and will be refused, unless they are sent to a login server. "
+                    + "Install it from https://github.com/Elytrium/LimboAPI");
         }
-        proxy.getEventManager().register(this, new AuthGateListener(proxy, logger, auth, messages, limboInstalled));
+        proxy.getEventManager().register(this, new AuthGateListener(proxy, logger, auth, messages, limboInstalled,
+                backendLogin));
 
         if (proxy.getConfiguration().isOnlineMode()) {
             logger.info("The proxy is in online mode, so Mojang logs everyone in and no password is asked for.");

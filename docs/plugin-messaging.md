@@ -345,3 +345,40 @@ anything treats the player as not muted.
 The companion cancels the message or command and sends this; the proxy then
 tells the player, in their own language, why and for how long, at most once
 every three seconds. That keeps every translated string on the proxy.
+
+# Logins over `katharsis:auth`
+
+The Katharsis NeoForge mod holds every player who joins its server in place
+until the proxy says they have logged in; see
+[authentication.md](authentication.md#modded-servers). This channel carries
+that conversation.
+
+| Operation | Direction        | Meaning                                                              |
+|-----------|------------------|----------------------------------------------------------------------|
+| `locked`  | backend to proxy | The player has joined and can do nothing until unlocked.             |
+| `unlock`  | proxy to backend | The player has logged in; let them play.                             |
+
+Like the other channels, messages from clients are dropped and nothing on it is
+forwarded to the other side. That is what stops a client from unlocking itself.
+Every message travels on the connection of the player it is about; one naming
+any other player is ignored on both sides.
+
+## Encoding
+
+Two `DataOutput#writeUTF` strings: the `operation` and the player's `uuid` in
+canonical dashed form. `locked` goes on with one more:
+
+| # | Field      | Type | Notes                                                                 |
+|---|------------|------|-----------------------------------------------------------------------|
+| 3 | `protocol` | UTF  | The mod's protocol, currently `1`. The proxy logs a mismatch.          |
+
+## When they are sent
+
+- The mod sends `locked` once per connection, as the player enters the world.
+- The proxy answers at once with `unlock` if the player has already logged in:
+  a premium player, or anyone moving here from another server.
+- Otherwise the proxy answers once they log in on this server. It never
+  answers for a player who has not.
+
+The mod registers the channel as optional, so clients do not need the mod. It
+takes `unlock` off the connection before the server or any other mod sees it.
