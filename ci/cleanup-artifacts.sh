@@ -3,14 +3,16 @@
 # Keeps the artifacts this repository has stored under a size budget, by
 # deleting the oldest runs' artifacts until the total fits.
 #
+# The Delete artifacts workflow runs it by hand with a budget of 0 and no runs
+# held back, which deletes every artifact.
+#
 # GitHub deletes artifacts one at a time, so a run's logs and test results are
 # left alone: only its artifacts go. Runs are taken oldest first and only as many
 # as the budget requires. The budget covers every workflow in the repository,
 # since that is what GitHub's storage quota counts.
 #
 # Expired artifacts are ignored: GitHub has already freed their storage. Neither
-# is the run performing the cleanup ever touched: this job goes first, so its own
-# artifacts do not exist yet.
+# is the run performing the cleanup ever touched.
 #
 # Environment:
 #   GITHUB_TOKEN           required  a token with actions: write

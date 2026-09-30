@@ -1,8 +1,6 @@
 # Build workflow for the Katharsis plugins.
 #
-#   Cleanup job    - runs first on master, and deletes the oldest runs'
-#                    artifacts whenever the repository's artifacts add up to
-#                    more than the size budget.
+#   Plan job       - decides whether this run publishes, and as which version.
 #   Proxy job      - compiles the Velocity plugin, runs its unit tests, shades
 #                    the jar, then boots it on a real Velocity proxy.
 #   Companion job  - builds the Paper companion for the 1.21.x line on JDK 21,
@@ -15,7 +13,28 @@
 #   NeoForge compat- recompiles the mod against the newest NeoForge of every
 #                    Minecraft version in the supported range.
 #
-# Each build job uploads its own jar under its final name, on master only.
+# Jars go to the release system (rsys.ganamaga.me, project katharsis), not to
+# workflow artifacts:
+#   push to master (or a manual run on it)
+#                   prerelease <version>-dev.<run number> (e.g. 0.1-dev.42,
+#                   <version> being pom.xml's)
+#   v<version> tag  release <version> (e.g. v0.2 -> 0.2)
+# `latest` is the newest tagged release; `latest?prerelease=true` is the
+# newest build. Pull requests build and test but publish nothing.
+#
+# Each build job uploads its own jars into a draft of that release; the Release
+# job publishes it once every job, compatibility checks included, has passed, so
+# nobody ever sees a release with only some of the jars.
+#
+# That needs the repository secret RSYS_TOKEN: a CLI token with rsys:read and
+# rsys:publish, from an account with the release_system permission
+#   gn-cli token create ci-katharsis -s rsys:read,rsys:publish --expires 1y
+# and the project created once:
+#   gn-cli rsys new-project katharsis --name Katharsis --public
+# Without the secret the run warns and nothing is published. gn-cli itself is
+# fetched from rsys by ci/install-gn-cli.sh.
+#
+# Old workflow artifacts can be wiped with the manual Delete artifacts workflow.
 #
 # The build jobs are independent: the plugins share a wire protocol, not code,
 # and each side pins the other's exact bytes in its own tests.
@@ -25,6 +44,7 @@ name: Build
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -48,49 +68,57 @@ env:
   # The companion's 26.x variant cannot: every 26.x Paper API jar is compiled to
   # Java 25 bytecode, which an older javac cannot read at all.
   COMPANION_26_JDK_VERSION: '25'
-  # Only master keeps jars. A PR run would otherwise store its own copy against
-  # the artifact budget for a jar nobody downloads.
-  PUBLISH_JARS: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/master' }}
+  RSYS_PROJECT: katharsis
 
 jobs:
-  cleanup:
-    name: Prune artifacts over the size budget
-    # Pull requests store no jars, and a fork's token could not delete any.
-    if: github.event_name != 'pull_request'
+  plan:
+    name: Plan the release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # A job's permissions replace the workflow's, so contents: read has to be
-    # restated here or checkout cannot read this private repository.
+    timeout-minutes: 5
     permissions:
       contents: read
-      actions: write
-    env:
-      # Total size of the build artifacts this repository is allowed to keep.
-      # The oldest runs' artifacts are deleted until the stored total fits.
-      ARTIFACT_BUDGET_BYTES: 1073741824
-      # Newest runs held back from deletion no matter what, so a cleanup can
-      # never leave the repository without a downloadable jar.
-      ARTIFACT_KEEP_BUILDS: 1
-      # Set to true to log what would be deleted without deleting anything.
-      ARTIFACT_DRY_RUN: false
+    outputs:
+      publish: ${{ steps.plan.outputs.publish }}
+      version: ${{ steps.plan.outputs.version }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          sparse-checkout: pom.xml
+          sparse-checkout-cone-mode: false
 
-      - name: Delete the oldest runs' artifacts over the budget
-        # Pruning is housekeeping. A permissions change or a transient API error
-        # must never stop the plugins from building, so this reports as a
-        # warning rather than failing the run.
-        continue-on-error: true
+      - name: Pick the version
+        id: plan
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./ci/cleanup-artifacts.sh
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          HAS_TOKEN: ${{ secrets.RSYS_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          publish=false; version=""; prerelease=false
+          if [ "$EVENT" != pull_request ]; then
+            case "$REF" in
+              refs/tags/v*)
+                publish=true; version="${REF#refs/tags/v}" ;;
+              refs/heads/master)
+                # The project's own version is the first <version> in the pom:
+                # it has no parent, and the plugins' versions come later.
+                base="$(sed -n 's|^ *<version>\([^<]*\)</version>.*|\1|p' pom.xml | head -n 1)"
+                [ -n "$base" ] || { echo "::error::no <version> in pom.xml"; exit 1; }
+                publish=true; version="$base-dev.$GITHUB_RUN_NUMBER"; prerelease=true ;;
+            esac
+          fi
+          if [ "$publish" = true ] && [ "$HAS_TOKEN" != true ]; then
+            echo "::warning::RSYS_TOKEN is not set; not publishing Katharsis $version to rsys.ganamaga.me"
+            publish=false
+          fi
+          echo "publish: $publish, version: ${version:-none}, prerelease: $prerelease"
+          { echo "publish=$publish"; echo "version=$version"; echo "prerelease=$prerelease"; } >> "$GITHUB_OUTPUT"
 
   proxy:
     name: Velocity plugin
-    needs: cleanup
-    # Runs whether the cleanup ran, was skipped on a pull request, or failed.
-    if: ${{ !cancelled() }}
+    needs: plan
     runs-on: ubuntu-latest
     # The integration test downloads Velocity and boots a JVM, so allow
     # noticeably more than a plain compile would need.
@@ -147,20 +175,26 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./ci/coverage-summary.sh 'Proxy coverage' target/site/jacoco/jacoco.csv
 
-      - name: Upload the proxy jar
-        if: env.PUBLISH_JARS == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: katharsis-proxy
+      - name: Fetch gn-cli
+        if: needs.plan.outputs.publish == 'true'
+        run: ./ci/install-gn-cli.sh
+
+      - name: Upload the proxy jar to the release system
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
+          RSYS_VERSION: ${{ needs.plan.outputs.version }}
+          RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
+        run: |
           # original-*.jar is the pre-shade jar and is not shipped; this glob
-          # does not match it.
-          path: target/katharsis_proxy-*.jar
-          if-no-files-found: error
+          # does not match it. The proxy jar is what `latest` hands out.
+          jar=(target/katharsis_proxy-*.jar)
+          ./ci/rsys-upload.sh --primary "$(basename "${jar[0]}")" "${jar[@]}"
 
   companion:
     name: Paper companion (1.21.x)
-    needs: cleanup
-    if: ${{ !cancelled() }}
+    needs: plan
     runs-on: ubuntu-latest
     # The compatibility check resolves a dependency tree per supported Paper
     # version, which is slow the first time the Maven cache is cold.
@@ -207,20 +241,24 @@ jobs:
         if: ${{ !cancelled() }}
         run: ./ci/coverage-summary.sh 'Companion 1.21.x coverage' paper/target/site/jacoco/jacoco.csv
 
-      - name: Upload the companion jar
-        if: env.PUBLISH_JARS == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: katharsis-companion
-          path: |
-            paper/target/katharsis_paper-*.jar
-            !paper/target/katharsis_paper-*-mc26.jar
-          if-no-files-found: error
+      - name: Fetch gn-cli
+        if: needs.plan.outputs.publish == 'true'
+        run: ./ci/install-gn-cli.sh
+
+      - name: Upload the companion jar to the release system
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
+          RSYS_VERSION: ${{ needs.plan.outputs.version }}
+          RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
+        run: |
+          shopt -s extglob
+          ./ci/rsys-upload.sh paper/target/katharsis_paper-!(*-mc26).jar
 
   companion26:
     name: Paper companion (26.x)
-    needs: cleanup
-    if: ${{ !cancelled() }}
+    needs: plan
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -264,18 +302,22 @@ jobs:
           # A fork's token cannot create a check run; annotate the run instead.
           annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
 
-      - name: Upload the 26.x companion jar
-        if: env.PUBLISH_JARS == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: katharsis-companion-26
-          path: paper/target/katharsis_paper-*-mc26.jar
-          if-no-files-found: error
+      - name: Fetch gn-cli
+        if: needs.plan.outputs.publish == 'true'
+        run: ./ci/install-gn-cli.sh
+
+      - name: Upload the 26.x companion jar to the release system
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
+          RSYS_VERSION: ${{ needs.plan.outputs.version }}
+          RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
+        run: ./ci/rsys-upload.sh paper/target/katharsis_paper-*-mc26.jar
 
   neoforge:
     name: NeoForge mod
-    needs: cleanup
-    if: ${{ !cancelled() }}
+    needs: plan
     runs-on: ubuntu-latest
     # Each line has Minecraft decompiled and recompiled on a cold cache.
     timeout-minutes: 45
@@ -316,18 +358,22 @@ jobs:
           # A fork's token cannot create a check run; annotate the run instead.
           annotate_only: ${{ github.event.pull_request.head.repo.fork == true }}
 
-      - name: Upload the NeoForge jars
-        if: env.PUBLISH_JARS == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: katharsis-neoforge
-          path: neoforge/build/libs/katharsis_neoforge-*.jar
-          if-no-files-found: error
+      - name: Fetch gn-cli
+        if: needs.plan.outputs.publish == 'true'
+        run: ./ci/install-gn-cli.sh
+
+      - name: Upload the NeoForge jars to the release system
+        if: needs.plan.outputs.publish == 'true'
+        env:
+          GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
+          RSYS_VERSION: ${{ needs.plan.outputs.version }}
+          RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
+          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
+        run: ./ci/rsys-upload.sh neoforge/build/libs/katharsis_neoforge-*.jar
 
   neoforge-compat:
     name: NeoForge mod (every supported version)
-    needs: cleanup
-    if: ${{ !cancelled() }}
+    needs: plan
     runs-on: ubuntu-latest
     # Thirteen NeoForge versions, each decompiled and recompiled on a cold cache.
     timeout-minutes: 120
@@ -350,3 +396,46 @@ jobs:
 
       - name: Compile against every supported NeoForge
         run: ./neoforge/compat-check.sh
+
+  release:
+    name: Publish ${{ startsWith(github.ref, 'refs/tags/') && 'release' || 'dev build' }}
+    needs: [plan, proxy, companion, companion26, neoforge, neoforge-compat]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
+      VERSION: ${{ needs.plan.outputs.version }}
+      GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: ci
+          sparse-checkout-cone-mode: false
+
+      - name: Fetch gn-cli
+        run: ./ci/install-gn-cli.sh
+
+      - name: Write the changelog
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          {
+            echo "Built from \`${GITHUB_SHA:0:12}\` on $GITHUB_REF_NAME ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+            if [ -n "$COMMIT_MESSAGE" ]; then echo; echo "$COMMIT_MESSAGE"; fi
+          } > notes.md
+
+      - name: Publish the release
+        run: |
+          set -euo pipefail
+          gn() { gn-cli --no-unicode --no-color "$@"; }
+          gn rsys edit "$RSYS_PROJECT" "$VERSION" --changelog-file notes.md
+          if [ "$(gn rsys show "$RSYS_PROJECT" "$VERSION" --json | jq -r .status)" = PUBLISHED ]; then
+            echo "$RSYS_PROJECT $VERSION is already published"
+          else
+            gn rsys publish "$RSYS_PROJECT" "$VERSION"
+          fi
+          echo "### Published Katharsis $VERSION to https://rsys.ganamaga.me/$RSYS_PROJECT" >> "$GITHUB_STEP_SUMMARY"
