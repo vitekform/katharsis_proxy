@@ -156,9 +156,8 @@ time — it already caught an `api-version` that did not match the compiled API.
 
 ## CI
 
-`.github/workflows/build.yml` runs on pushes and pull requests to `master`, on
-`v*` tags, and
-can be started by hand from the Actions tab:
+`.github/workflows/build.yml` runs on pushes and pull requests to `master` and
+on `v*` tags, and can be started by hand from the Actions tab:
 
 1. **Plan** — decides whether the run publishes, and as which version: a push
    to `master` (or a manual run on it) becomes the prerelease
