@@ -22,6 +22,11 @@
 # `latest` is the newest tagged release; `latest?prerelease=true` is the
 # newest build. Pull requests build and test but publish nothing.
 #
+# Every jar is stamped with that release name (-Dkatharsis.release for Maven,
+# -Prelease for Gradle), which is how its update checker knows what it is; see
+# updater/README.md. A jar without one, as on a pull request, counts as a local
+# build and is never replaced automatically.
+#
 # Each build job uploads its own jars into a draft of that release; the Release
 # job publishes it once every job, compatibility checks included, has passed, so
 # nobody ever sees a release with only some of the jars.
@@ -154,9 +159,12 @@ jobs:
           key: velocity-${{ runner.os }}-${{ hashFiles('pom.xml') }}
 
       - name: Build, unit test, shade and boot on Velocity
+        env:
+          RELEASE: ${{ needs.plan.outputs.version }}
         run: |
           mvn -B -ntp \
             -Dvelocity.cache.dir="$VELOCITY_CACHE_FOLDER" \
+            -Dkatharsis.release="$RELEASE" \
             clean verify
 
       - name: Publish test results
@@ -221,7 +229,9 @@ jobs:
             maven-${{ runner.os }}-
 
       - name: Build and unit test the companion
-        run: mvn -B -ntp -f paper/pom.xml clean verify
+        env:
+          RELEASE: ${{ needs.plan.outputs.version }}
+        run: mvn -B -ntp -f paper/pom.xml -Dkatharsis.release="$RELEASE" clean verify
 
       - name: Compile against every supported Paper API
         run: ./paper/compat-check.sh
@@ -283,7 +293,9 @@ jobs:
             maven-${{ runner.os }}-
 
       - name: Build and unit test the 26.x variant
-        run: mvn -B -ntp -f paper/pom.xml -P paper-26 clean verify
+        env:
+          RELEASE: ${{ needs.plan.outputs.version }}
+        run: mvn -B -ntp -f paper/pom.xml -P paper-26 -Dkatharsis.release="$RELEASE" clean verify
 
       - name: Compile against every supported Paper API (full range)
         # This JDK can read both lines' APIs, so --strict here proves the whole
@@ -340,10 +352,12 @@ jobs:
 
       - name: Build and unit test every line
         working-directory: neoforge
+        env:
+          RELEASE: ${{ needs.plan.outputs.version }}
         run: |
-          ./gradlew --no-daemon build
-          ./gradlew --no-daemon build -Pline=1.21.11
-          ./gradlew --no-daemon build -Pline=26
+          ./gradlew --no-daemon build -Prelease="$RELEASE"
+          ./gradlew --no-daemon build -Prelease="$RELEASE" -Pline=1.21.11
+          ./gradlew --no-daemon build -Prelease="$RELEASE" -Pline=26
 
       - name: Publish NeoForge test results
         if: ${{ !cancelled() }}

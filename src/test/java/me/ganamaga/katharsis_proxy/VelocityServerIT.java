@@ -105,6 +105,10 @@ class VelocityServerIT {
         assertLogged(log, "Names held by a Mojang account are sent through Mojang's login and skip the password.");
         assertLogged(log, "Registered /login and /register.");
 
+        // The jar knows which build it is, so it can tell whether one is newer.
+        assertLogged(log, "This is Katharsis ");
+        assertLogged(log, "Checking for new ");
+
         // Proves the shade relocation is what actually runs: an unrelocated
         // build would log com.zaxxer.hikari instead.
         assertLogged(log, "me.ganamaga.katharsis_proxy.libs.hikari");

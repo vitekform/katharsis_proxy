@@ -14,6 +14,7 @@ import me.ganamaga.katharsis_paper.protocol.ChatChannel;
 import me.ganamaga.katharsis_paper.protocol.LanguageChannel;
 import me.ganamaga.katharsis_paper.protocol.ProxyClient;
 import me.ganamaga.katharsis_paper.protocol.PunishChannel;
+import me.ganamaga.katharsis_paper.update.CompanionUpdates;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -37,6 +38,9 @@ import org.bukkit.plugin.java.JavaPlugin;
  * <p>Mutes are issued on the proxy, which cannot block chat itself; it tells
  * this plugin who is muted here, and this plugin cancels their chat and the
  * commands they could talk through.</p>
+ *
+ * <p>It keeps itself up to date from the release system; see
+ * {@link CompanionUpdates}.</p>
  */
 public final class KatharsisPaper extends JavaPlugin {
 
@@ -100,6 +104,12 @@ public final class KatharsisPaper extends JavaPlugin {
         announcer.announceOnStartup();
         // After a reload with players online, nobody is muted until the proxy says so.
         muteListener.resync();
+
+        CompanionUpdates updates = CompanionUpdates.create(this, getFile());
+        if (updates != null) {
+            registerCommand("kcompanion", updates);
+            updates.start();
+        }
     }
 
     @Override

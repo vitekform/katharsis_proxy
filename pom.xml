@@ -36,6 +36,10 @@
         <shade.relocation.base>me.ganamaga.katharsis_proxy.libs</shade.relocation.base>
         <!-- The same package as a path; keep the two in sync. -->
         <shade.relocation.path>me/ganamaga/katharsis_proxy/libs</shade.relocation.path>
+        <!-- The release this jar is, as the release system names it (e.g.
+             0.1-dev.42). CI passes -Dkatharsis.release; a local build leaves it
+             empty, which the updater reads as "not an official build". -->
+        <katharsis.release></katharsis.release>
     </properties>
 
     <profiles>
@@ -103,6 +107,39 @@
             </resource>
         </resources>
         <plugins>
+            <!-- The update checker is shared with the companion and the mod: see
+                 updater/README.md. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>add-updater-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/updater/src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>add-updater-test-source</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/updater/src/test/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

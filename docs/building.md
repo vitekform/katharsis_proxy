@@ -19,7 +19,9 @@ This repository holds three projects, built separately:
   see [authentication.md](authentication.md#modded-servers). It builds with
   Gradle (the wrapper is checked in), since NeoForge's tooling is Gradle-only.
 
-They share a wire protocol, not code, so none depends on another at build time.
+They share a wire protocol and nothing else, except the update checker in
+`updater/`, which each build compiles in as sources (see
+[updates.md](updates.md#how-it-is-built)).
 
 ## Commands
 
@@ -195,7 +197,9 @@ gn-cli token create ci-katharsis -s rsys:read,rsys:publish --expires 1y
 gn-cli rsys new-project katharsis --name Katharsis --public
 ```
 
-Without the secret the run warns and publishes nothing. gn-cli itself is
+Every build job stamps its jars with the release name (`-Dkatharsis.release`,
+`-Prelease`), which is how their [update checkers](updates.md) know what they
+are. Without the secret the run warns and publishes nothing. gn-cli itself is
 fetched from rsys by `ci/install-gn-cli.sh`. For a tagged release, bump the
 versions in the poms and `neoforge/gradle.properties` to match the tag first,
 or the jar names will say otherwise.

@@ -439,7 +439,31 @@ public enum MessageKey {
     DISCORD_PUNISH_NOT_LINKED("discord-punish-not-linked"),
 
     /** On Discord, the linked account lacks a permission. Placeholders: {@code <node>}. */
-    DISCORD_PUNISH_NO_PERMISSION("discord-punish-no-permission");
+    DISCORD_PUNISH_NO_PERMISSION("discord-punish-no-permission"),
+
+    /** /katharsis on its own. Placeholders: {@code <current>}. */
+    UPDATE_USAGE("update-usage"),
+
+    /** Placeholders: none. */
+    UPDATE_CHECKING("update-checking"),
+
+    /** Placeholders: {@code <current>}. */
+    UPDATE_UP_TO_DATE("update-up-to-date"),
+
+    /** To staff and after /katharsis check. Placeholders: {@code <current>}, {@code <latest>}. */
+    UPDATE_AVAILABLE("update-available"),
+
+    /** Placeholders: {@code <current>}, {@code <latest>}. */
+    UPDATE_DOWNLOADED("update-downloaded"),
+
+    /** The newer release has no proxy jar. Placeholders: {@code <latest>}. */
+    UPDATE_NO_FILE("update-no-file"),
+
+    /** Placeholders: {@code <error>}. */
+    UPDATE_FAILED("update-failed"),
+
+    /** updates.enabled is false. Placeholders: none. */
+    UPDATE_DISABLED("update-disabled");
 
     private final String key;
 
