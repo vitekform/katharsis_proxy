@@ -185,7 +185,6 @@ jobs:
           GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
           RSYS_VERSION: ${{ needs.plan.outputs.version }}
           RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
-          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
         run: |
           # original-*.jar is the pre-shade jar and is not shipped; this glob
           # does not match it. The proxy jar is what `latest` hands out.
@@ -251,7 +250,6 @@ jobs:
           GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
           RSYS_VERSION: ${{ needs.plan.outputs.version }}
           RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
-          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
         run: |
           shopt -s extglob
           ./ci/rsys-upload.sh paper/target/katharsis_paper-!(*-mc26).jar
@@ -312,7 +310,6 @@ jobs:
           GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
           RSYS_VERSION: ${{ needs.plan.outputs.version }}
           RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
-          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
         run: ./ci/rsys-upload.sh paper/target/katharsis_paper-*-mc26.jar
 
   neoforge:
@@ -368,7 +365,6 @@ jobs:
           GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
           RSYS_VERSION: ${{ needs.plan.outputs.version }}
           RSYS_PRERELEASE: ${{ needs.plan.outputs.prerelease }}
-          GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
         run: ./ci/rsys-upload.sh neoforge/build/libs/katharsis_neoforge-*.jar
 
   neoforge-compat:
@@ -408,7 +404,6 @@ jobs:
     env:
       GN_TOKEN: ${{ secrets.RSYS_TOKEN }}
       VERSION: ${{ needs.plan.outputs.version }}
-      GN_CLI_CONFIG_DIR: ${{ runner.temp }}/gn-cli-config
     steps:
       - name: Checkout
         uses: actions/checkout@v5
