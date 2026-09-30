@@ -14,6 +14,9 @@
 # Environment:
 #   RUNNER_TEMP   required  where the binary goes
 #   GITHUB_PATH   optional  when set, the binary's folder is appended to it
+#   GITHUB_ENV    optional  when set, GN_CLI_CONFIG_DIR is pointed into
+#                           RUNNER_TEMP for the rest of the job, so gn-cli
+#                           keeps its state out of the runner's home
 
 set -euo pipefail
 
@@ -47,4 +50,7 @@ chmod +x "$dir/gn-cli"
 
 if [ -n "${GITHUB_PATH:-}" ]; then
   echo "$dir" >> "$GITHUB_PATH"
+fi
+if [ -n "${GITHUB_ENV:-}" ]; then
+  echo "GN_CLI_CONFIG_DIR=$RUNNER_TEMP/gn-cli-config" >> "$GITHUB_ENV"
 fi
