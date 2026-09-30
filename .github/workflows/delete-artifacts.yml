@@ -1,0 +1,52 @@
+# Deletes every workflow artifact this repository has stored.
+#
+# Run by hand from the Actions tab. Builds no longer store artifacts (jars go
+# to the release system, see build.yml), so this is for clearing out what
+# older runs left behind. Only the artifacts go: runs, logs and test results
+# are left alone.
+#
+# It reuses ci/cleanup-artifacts.sh with a budget of zero and no runs held
+# back, so everything counts as over budget. Tick "dry run" to see what would
+# be deleted first.
+
+name: Delete artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  delete:
+    name: Delete every artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # A job's permissions replace the workflow's, so contents: read has to be
+    # restated here or checkout cannot read this private repository.
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          sparse-checkout: ci
+          sparse-checkout-cone-mode: false
+
+      - name: Delete all artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARTIFACT_BUDGET_BYTES: 0
+          ARTIFACT_KEEP_BUILDS: 0
+          ARTIFACT_DRY_RUN: ${{ inputs.dry_run }}
+        run: ./ci/cleanup-artifacts.sh

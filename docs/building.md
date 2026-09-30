@@ -156,33 +156,57 @@ time — it already caught an `api-version` that did not match the compiled API.
 
 ## CI
 
-`.github/workflows/build.yml` runs on pushes and pull requests to `master`, and
-can be started by hand from the Actions tab:
+`.github/workflows/build.yml` runs on pushes and pull requests to `master` and
+on `v*` tags, and can be started by hand from the Actions tab:
 
-1. **Cleanup** — pushes only: `ci/cleanup-artifacts.sh` deletes the oldest runs'
-   artifacts until the repository's unexpired artifacts fit a 1 GiB budget,
-   always keeping the newest run's. It is non-fatal, so a failure there never
-   blocks a build. Its selection logic is tested by `ci/cleanup-artifacts-test.sh`
-   against a mock of the GitHub API.
-2. **Build** — three independent jobs:
+1. **Plan** — decides whether the run publishes, and as which version: a push
+   to `master` (or a manual run on it) becomes the prerelease
+   `<pom version>-dev.<run number>`, a `v<version>` tag the release
+   `<version>`. Pull requests publish nothing.
+2. **Build** — independent jobs:
    - *Velocity plugin*: restores the Maven and Velocity caches, runs
-     `mvn clean verify`, reports unit and integration results plus coverage,
-     and uploads the shaded jar as `katharsis-proxy`.
+     `mvn clean verify`, and reports unit and integration results plus coverage.
    - *Paper companion (1.21.x)*: on JDK 21, runs
      `mvn -f paper/pom.xml clean verify`, then `compat-check.sh`. That check
      covers the 1.21.x half of the range and reports the 26.x versions as
-     skipped, since JDK 21 cannot read them. Uploads `katharsis-companion`.
+     skipped, since JDK 21 cannot read them.
    - *Paper companion (26.x)*: on JDK 25, builds with `-P paper-26`, and runs
      `compat-check.sh --strict` — on that JDK nothing can be skipped, so this is
-     where the **full** range is proven. Uploads `katharsis-companion-26`.
+     where the **full** range is proven.
    - *NeoForge mod*: with JDK 21 and 25 installed, builds and tests all three
-     lines and uploads their jars as `katharsis-neoforge`.
+     lines.
    - *NeoForge mod (every supported version)*: runs `neoforge/compat-check.sh`.
      It is the slowest job by far, since it sets up thirteen NeoForge versions.
+3. **Release** — when the run publishes, each build job has already uploaded
+   its jars into a draft on the release system
+   ([rsys.ganamaga.me](https://rsys.ganamaga.me/katharsis/public/releases.json),
+   project `katharsis`) with `gn-cli rsys publish` (`ci/rsys-upload.sh`). Once
+   every job above has passed, this job publishes the draft, so a release never
+   shows up with only some of the jars. The proxy jar is the primary file, the
+   one `https://rsys.ganamaga.me/katharsis/public/latest` hands out; add
+   `?prerelease=true` to `latest.json` for the newest dev build.
 
-Jars are only uploaded from `master`; pull request runs build and test but keep
-nothing. JDKs come from `actions/setup-java` (Temurin), so a problem fetching
-JDK 25 cannot stop the other artifacts being produced.
+Publishing needs the repository secret `RSYS_TOKEN` — a CLI token with
+`rsys:read` and `rsys:publish` from an account with the release_system
+permission — and the `katharsis` project created once on rsys:
+
+```
+gn-cli token create ci-katharsis -s rsys:read,rsys:publish --expires 1y
+gn-cli rsys new-project katharsis --name Katharsis --public
+```
+
+Without the secret the run warns and publishes nothing. gn-cli itself is
+fetched from rsys by `ci/install-gn-cli.sh`. For a tagged release, bump the
+versions in the poms and `neoforge/gradle.properties` to match the tag first,
+or the jar names will say otherwise.
+
+No workflow artifacts are stored any more. The **Delete artifacts** workflow
+(`.github/workflows/delete-artifacts.yml`, run by hand from the Actions tab)
+deletes every artifact older runs left behind, with a dry-run option. It runs
+`ci/cleanup-artifacts.sh` with a budget of zero; that script's selection logic
+is tested by `ci/cleanup-artifacts-test.sh`.
+
+JDKs come from `actions/setup-java` (Temurin).
 
 Test results are reported with `!cancelled()`, so a failing run still shows
 which tests failed rather than only that the build broke. Coverage is written to
