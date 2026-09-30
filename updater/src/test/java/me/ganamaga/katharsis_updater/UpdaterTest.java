@@ -164,6 +164,15 @@ class UpdaterTest {
     }
 
     @Test
+    @DisplayName("a bot challenge page in place of latest.json is reported as such")
+    void challengePage() {
+        rsys.latest.put(false, "<!doctype html><html><head><title>Making sure you're not a bot!</title>");
+        Updater.Result result = updater("0.1", true, "katharsis_proxy", "", Channel.AUTO, true).check();
+        assertEquals(Updater.Status.FAILED, result.status());
+        assertTrue(result.error().contains("web page instead of JSON (a bot challenge)"), result.error());
+    }
+
+    @Test
     @DisplayName("an update is announced once, not at every check")
     void announcedOnce() {
         rsys.publish(false, "0.2", false, ALL_JARS);

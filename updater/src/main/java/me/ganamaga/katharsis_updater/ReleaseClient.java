@@ -92,6 +92,11 @@ public final class ReleaseClient {
         if (response.statusCode() != 200) {
             throw new IOException(url + " answered HTTP " + response.statusCode());
         }
+        if (looksLikeAPage(response.body())) {
+            // A bot challenge or error page in front of rsys still answers 200.
+            throw new IOException(url + " answered with a web page instead of JSON"
+                    + (response.body().contains("not a bot") ? " (a bot challenge)" : ""));
+        }
         return Optional.of(parseLatest(response.body()));
     }
 
@@ -165,6 +170,11 @@ public final class ReleaseClient {
         } finally {
             Files.deleteIfExists(part);
         }
+    }
+
+    static boolean looksLikeAPage(String body) {
+        String start = body.stripLeading();
+        return start.startsWith("<");
     }
 
     static boolean isSafeFilename(String name) {
