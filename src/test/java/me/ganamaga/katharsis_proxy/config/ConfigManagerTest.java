@@ -103,6 +103,39 @@ class ConfigManagerTest {
     }
 
     @Test
+    @DisplayName("updates are checked and downloaded by default, and every key can be set")
+    void readsUpdates(@TempDir Path directory) throws ConfigurateException, IOException {
+        ConfigManager defaults = managerIn(directory);
+        defaults.load();
+        UpdatesConfig shipped = defaults.config().updates();
+        assertTrue(shipped.enabled());
+        assertEquals("auto", shipped.channel());
+        assertTrue(shipped.autoDownload());
+        assertEquals(6, shipped.checkIntervalHours());
+        assertTrue(shipped.notifyStaff());
+        assertEquals("", shipped.url());
+
+        Files.writeString(directory.resolve("config.yml"), """
+                updates:
+                  enabled: false
+                  channel: dev
+                  auto-download: false
+                  check-interval-hours: -3
+                  notify-staff: false
+                  url: " https://example.com/katharsis/public "
+                """);
+        ConfigManager manager = managerIn(directory);
+        manager.load();
+        UpdatesConfig updates = manager.config().updates();
+        assertFalse(updates.enabled());
+        assertEquals("dev", updates.channel());
+        assertFalse(updates.autoDownload());
+        assertEquals(0, updates.checkIntervalHours(), "negative means never");
+        assertFalse(updates.notifyStaff());
+        assertEquals("https://example.com/katharsis/public", updates.url());
+    }
+
+    @Test
     @DisplayName("every motd key in the shipped config.yml maps onto a field")
     void shippedMotdKeysAllMap(@TempDir Path directory) throws ConfigurateException {
         managerIn(directory).load();

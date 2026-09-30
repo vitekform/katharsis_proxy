@@ -14,6 +14,7 @@ public class KatharsisConfig {
     private ModerationConfig moderation = new ModerationConfig();
     private AuthConfig auth = new AuthConfig();
     private PunishmentsConfig punishments = new PunishmentsConfig();
+    private UpdatesConfig updates = new UpdatesConfig();
     private String defaultLanguage = "en_US";
 
     /**
@@ -45,6 +46,10 @@ public class KatharsisConfig {
 
     public PunishmentsConfig punishments() {
         return punishments == null ? new PunishmentsConfig() : punishments;
+    }
+
+    public UpdatesConfig updates() {
+        return updates == null ? new UpdatesConfig() : updates;
     }
 
     public String defaultLanguage() {

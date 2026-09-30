@@ -16,9 +16,43 @@ server-id: ''
 # unreachable, in seconds.
 request-timeout-seconds: 5
 
+# Keeps the companion up to date from the release system, rsys.ganamaga.me. A
+# newer jar for this server's Paper line is downloaded into the update folder
+# (plugins/update) under this jar's name, and Paper swaps it in at the next
+# start. /kcompanion check and /kcompanion update (permission katharsis.update)
+# do the same by hand. Jars built by hand rather than by CI are told about
+# updates but never replaced on their own.
+updates:
+  enabled: true
+  # Which builds count as updates:
+  #   auto     - whatever this jar is: a dev build follows dev builds, a
+  #              release follows releases (default)
+  #   release  - tagged releases only
+  #   dev      - every build of master too
+  channel: auto
+  # Download a newer jar as soon as one is found. Off, updates are only
+  # announced, in the console and to staff.
+  auto-download: true
+  # Hours between checks; 0 checks only at startup.
+  check-interval-hours: 6
+  # Tell players with katharsis.update.notify about an update when they join.
+  notify-staff: true
+  # The project's public root on the release system. Leave empty for
+  # https://rsys.ganamaga.me/katharsis/public.
+  url: ''
+
 # The only strings this plugin owns, because they are what it says when the
 # proxy did not answer and there is no language to say it in.
 # Formatting uses MiniMessage: https://docs.advntr.dev/minimessage/format.html
 messages:
   proxy-unreachable: "<red>Could not reach the proxy. Please try again in a moment."
   players-only: "<red>Only players can use this command."
+  # /kcompanion. <current> is this jar's version, <latest> the newest release.
+  update-usage: "<gray>Katharsis companion <white><current></white>. <gold>/kcompanion check</gold> looks for an update, <gold>/kcompanion update</gold> downloads it.</gray>"
+  update-checking: "<gray>Checking for updates…</gray>"
+  update-up-to-date: "<green>The Katharsis companion <white><current></white> is up to date.</green>"
+  update-available: "<gold>Katharsis companion <white><latest></white> is available</gold> <gray>(this server runs <current>). <gold>/kcompanion update</gold> downloads it.</gray>"
+  update-downloaded: "<green>Katharsis companion <white><latest></white> is downloaded</green> <gray>and replaces <current> when this server restarts.</gray>"
+  update-no-file: "<red>Katharsis <white><latest></white> is out, but it has no companion jar for this Paper version.</red>"
+  update-failed: "<red>Could not update: <white><error></white></red>"
+  update-disabled: "<gray>Update checks are off in config.yml (updates.enabled).</gray>"

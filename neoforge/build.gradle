@@ -42,6 +42,9 @@ tasks.named('jar') {
 java.toolchain.languageVersion = JavaLanguageVersion.of(line.java as int)
 
 sourceSets.main.java.srcDir "src/${line.ids}/java"
+// The update checker, shared with the proxy and the companion; its tests run
+// in the proxy's build. See ../updater/README.md.
+sourceSets.main.java.srcDir '../updater/src/main/java'
 
 neoForge {
     version = findProperty('neo_version') ?: line.neo
@@ -73,12 +76,16 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-// neoforge.mods.toml with this line's version ranges filled in.
+// neoforge.mods.toml with this line's version ranges filled in, and
+// katharsis-build.properties saying which jar this is. -Prelease=0.1-dev.42 is
+// the release system's name for the build; CI passes it, a local build has none.
 def generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
     def properties = [
             mod_version            : version,
             minecraft_version_range: line.minecraft,
             neo_version_range      : line.neoRange,
+            release                : findProperty('release') ?: '',
+            classifier             : line.classifier,
     ]
     inputs.properties properties
     expand properties

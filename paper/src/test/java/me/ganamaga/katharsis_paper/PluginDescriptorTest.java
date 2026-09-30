@@ -1,5 +1,6 @@
 package me.ganamaga.katharsis_paper;
 
+import me.ganamaga.katharsis_updater.BuildInfo;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -131,6 +132,25 @@ class PluginDescriptorTest {
 
         assertTrue(yaml.contains("\n  language:"), "plugin.yml must declare the language command");
         assertTrue(yaml.contains("aliases: [lang]"), "the /lang alias replaces the proxy's");
+    }
+
+    @Test
+    @DisplayName("/kcompanion is declared, since the command is registered in code")
+    void updateCommandIsDeclared() throws IOException {
+        assertTrue(resource("plugin.yml").contains("\n  kcompanion:"), "plugin.yml must declare the update command");
+    }
+
+    @Test
+    @DisplayName("the updater looks for this variant's jar and no other")
+    void buildInfoNamesThisVariant() throws IOException {
+        BuildInfo build = BuildInfo.load(KatharsisPaper.class);
+        String variant = property("katharsis.paper.variant");
+
+        assertEquals("katharsis_paper", build.artifact());
+        assertEquals("26.x".equals(variant) ? "mc26" : "", build.classifier(),
+                "the classifier must match the -mc26 suffix the jar is published under");
+        assertEquals(build.official(), !property("katharsis.release").isEmpty(),
+                "only a jar CI named is official");
     }
 
     @Test

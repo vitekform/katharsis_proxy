@@ -223,12 +223,16 @@ aside if you want both at once.
 Order does not matter: the companion announces as soon as a player is connected,
 whichever started first.
 
+After that, every piece keeps itself up to date from the release system; see
+[updates.md](updates.md).
+
 ## Configuration
 
 The companion's `config.yml` is deliberately almost empty. It holds the request
-timeout and the two messages it needs when the proxy did not answer, because at
-that moment there is no language to answer in. Everything else lives in the
-proxy's `lang/` files.
+timeout, the [update settings](updates.md), and the few messages it needs when
+the proxy did not answer (because at that moment there is no language to answer
+in) or that only an admin sees. Everything else lives in the proxy's `lang/`
+files.
 
 ## Adding a language
 

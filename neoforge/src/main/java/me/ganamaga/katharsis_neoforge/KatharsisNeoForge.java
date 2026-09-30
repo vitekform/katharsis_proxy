@@ -2,12 +2,15 @@ package me.ganamaga.katharsis_neoforge;
 
 import me.ganamaga.katharsis_neoforge.lock.Locks;
 import me.ganamaga.katharsis_neoforge.protocol.AuthPayload;
+import me.ganamaga.katharsis_neoforge.update.ModUpdates;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.network.event.RegisterConfigurationTasksEvent;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -19,6 +22,9 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
  * proxy says they have logged in. That lets players whose modded client cannot
  * enter the proxy's login void log in on this server instead. Server-side only:
  * players do not need it installed.</p>
+ *
+ * <p>It keeps itself up to date from the release system; see
+ * {@link ModUpdates}.</p>
  */
 @Mod(value = KatharsisNeoForge.MOD_ID, dist = Dist.DEDICATED_SERVER)
 public final class KatharsisNeoForge {
@@ -33,5 +39,12 @@ public final class KatharsisNeoForge {
         NeoForge.EVENT_BUS.addListener(PlayerEvent.PlayerLoggedOutEvent.class, locks::onLoggedOut);
         NeoForge.EVENT_BUS.addListener(LivingIncomingDamageEvent.class, locks::onDamage);
         NeoForge.EVENT_BUS.addListener(ServerTickEvent.Post.class, locks::onTick);
+
+        ModUpdates.create(FMLPaths.CONFIGDIR.get(), FMLPaths.GAMEDIR.get(), FMLPaths.MODSDIR.get())
+                .ifPresent(updates -> {
+                    updates.start();
+                    // Once stopped, nothing more is loaded from the jar being replaced.
+                    NeoForge.EVENT_BUS.addListener(ServerStoppedEvent.class, event -> updates.stopAndInstall());
+                });
     }
 }

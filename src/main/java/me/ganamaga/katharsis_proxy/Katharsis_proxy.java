@@ -19,6 +19,7 @@ import me.ganamaga.katharsis_proxy.auth.MojangProfiles;
 import me.ganamaga.katharsis_proxy.auth.PasswordHasher;
 import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
 import me.ganamaga.katharsis_proxy.command.AuthCommand;
+import me.ganamaga.katharsis_proxy.command.KatharsisCommand;
 import me.ganamaga.katharsis_proxy.command.LinkCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.command.punish.AltsCommand;
@@ -99,6 +100,7 @@ import me.ganamaga.katharsis_proxy.punish.VelocityEnforcer;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentLoginListener;
 import me.ganamaga.katharsis_proxy.punish.listener.PunishmentServerListener;
 import me.ganamaga.katharsis_proxy.punish.listener.SessionRecorder;
+import me.ganamaga.katharsis_proxy.update.ProxyUpdates;
 import me.ganamaga.katharsis_proxy.util.DebugLog;
 import me.ganamaga.katharsis_proxy.web.PunishmentWebSync;
 import org.slf4j.Logger;
@@ -210,6 +212,9 @@ public class Katharsis_proxy {
     /** Null while chat moderation is off. */
     private ChatModerator chatModerator;
 
+    /** Null only if the jar cannot say which version it is. */
+    private ProxyUpdates updates;
+
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
         logger.info(YELLOW + "Loading Katharsis Proxy...");
@@ -228,6 +233,7 @@ public class Katharsis_proxy {
         registerPluginMessaging();
         registerMotd();
         scheduleCacheSweep();
+        setUpUpdates();
         logger.info(GREEN + "Katharsis Proxy loaded successfully.");
     }
 
@@ -253,6 +259,10 @@ public class Katharsis_proxy {
         }
         if (database != null) {
             database.close();
+        }
+        // Last: nothing else should load classes from the jar being replaced.
+        if (updates != null) {
+            updates.installPending();
         }
     }
 
@@ -789,6 +799,22 @@ public class Katharsis_proxy {
      */
     public DiscordBot discordBot() {
         return discordBot;
+    }
+
+    /**
+     * Checks the release system for a newer Katharsis and registers
+     * /katharsis. See {@link ProxyUpdates}.
+     */
+    private void setUpUpdates() {
+        updates = ProxyUpdates.create(this, proxy, logger, messages, configManager.config().updates(), dataDirectory,
+                proxy.getVersion().getVersion()).orElse(null);
+        if (updates == null) {
+            return;
+        }
+        updates.start();
+        CommandManager commandManager = proxy.getCommandManager();
+        commandManager.register(commandManager.metaBuilder(KatharsisCommand.NAME).plugin(this).build(),
+                new KatharsisCommand(messages, updates));
     }
 
     /**

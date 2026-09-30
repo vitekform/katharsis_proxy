@@ -536,6 +536,31 @@ punishments:
     # warning.
     template: ""
 
+# Keeps Katharsis up to date from the release system, rsys.ganamaga.me. A newer
+# proxy jar is downloaded to updates/ next to this file and moved into plugins/
+# when the proxy shuts down, so the next start runs it; nothing changes under a
+# running proxy. /katharsis check and /katharsis update (permission
+# katharsis.update) do the same by hand. Jars built by hand rather than by CI
+# are told about updates but never replaced on their own.
+updates:
+  enabled: true
+  # Which builds count as updates:
+  #   auto     - whatever this jar is: a dev build follows dev builds, a
+  #              release follows releases (default)
+  #   release  - tagged releases only
+  #   dev      - every build of master too
+  channel: auto
+  # Download a newer jar as soon as one is found. Off, updates are only
+  # announced, in the console and to staff.
+  auto-download: true
+  # Hours between checks; 0 checks only at startup.
+  check-interval-hours: 6
+  # Tell players with katharsis.update.notify about an update when they join.
+  notify-staff: true
+  # The project's public root on the release system. Leave empty for
+  # https://rsys.ganamaga.me/katharsis/public.
+  url: ""
+
 # Language assigned to a player the first time they join.
 # At most 5 characters, e.g. en_US.
 default-language: en_US

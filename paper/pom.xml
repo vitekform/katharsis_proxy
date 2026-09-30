@@ -35,6 +35,12 @@
         <required.jdk.range>[21,)</required.jdk.range>
         <!-- Appended to the jar name so the two variants can sit side by side. -->
         <paper.variant.suffix></paper.variant.suffix>
+        <!-- The same, as the updater names the variant; see katharsis-build.properties. -->
+        <paper.variant.classifier></paper.variant.classifier>
+        <!-- The release this jar is, as the release system names it (e.g.
+             0.1-dev.42). CI passes -Dkatharsis.release; a local build leaves it
+             empty, which the updater reads as "not an official build". -->
+        <katharsis.release></katharsis.release>
 
         <junit.version>5.14.4</junit.version>
         <surefire.version>3.6.0</surefire.version>
@@ -55,6 +61,7 @@
                 <java.release>25</java.release>
                 <required.jdk.range>[25,)</required.jdk.range>
                 <paper.variant.suffix>-mc26</paper.variant.suffix>
+                <paper.variant.classifier>mc26</paper.variant.classifier>
             </properties>
         </profile>
     </profiles>
@@ -92,6 +99,27 @@
             </resource>
         </resources>
         <plugins>
+            <!-- The update checker, shared with the proxy and the mod; its tests
+                 run in the proxy's build. See ../updater/README.md. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>add-updater-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${project.basedir}/../updater/src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -138,6 +166,7 @@
                         <katharsis.paper.supported.min>${paper.supported.min}</katharsis.paper.supported.min>
                         <katharsis.paper.supported.max>${paper.supported.max}</katharsis.paper.supported.max>
                         <katharsis.java.release>${java.release}</katharsis.java.release>
+                        <katharsis.release>${katharsis.release}</katharsis.release>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

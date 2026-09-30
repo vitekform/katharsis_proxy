@@ -13,3 +13,15 @@ commands:
   settings:
     description: Open your settings.
     usage: /settings
+  kcompanion:
+    description: Show the companion's version, or check for and download an update.
+    usage: /kcompanion [check|update]
+    permission: katharsis.update
+
+permissions:
+  katharsis.update:
+    description: Check for and download updates of the companion.
+    default: op
+  katharsis.update.notify:
+    description: Be told about a companion update when joining.
+    default: op

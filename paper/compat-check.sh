@@ -61,7 +61,8 @@ MAX_CLASS_FILE=$((JDK_MAJOR + 44))
 echo "Running on JDK ${JDK_MAJOR}, which reads class files up to major ${MAX_CLASS_FILE}."
 echo
 
-SOURCES=$(find src/main/java -name '*.java')
+# The update checker shared with the proxy and the mod is part of the plugin too.
+SOURCES=$(find src/main/java ../updater/src/main/java -name '*.java')
 mkdir -p "$WORK"
 
 passed=0
