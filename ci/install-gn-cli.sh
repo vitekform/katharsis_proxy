@@ -26,6 +26,16 @@ dir="${RUNNER_TEMP:?}/gn-cli"
 rm -rf "$dir" && mkdir -p "$dir"
 
 curl -fsSL --retry 3 -o "$dir/releases.json" "$RELEASES_URL"
+# Anything in front of rsys that answers with a page instead (Anubis's "Making
+# sure you're not a bot!" challenge, say) still comes back 200, so check.
+if ! jq -e 'type == "array"' "$dir/releases.json" > /dev/null 2>&1; then
+  echo "::error::$RELEASES_URL did not answer with JSON; it starts with:"
+  head -c 300 "$dir/releases.json"; echo
+  if grep -qi 'not a bot\|anubis' "$dir/releases.json"; then
+    echo "::error::That is an Anubis bot challenge: the policy on the server does not let rsys.ganamaga.me through (see the release-system rule in nextgen's nextgen_backend/botPolicy.yaml)."
+  fi
+  exit 1
+fi
 read -r version want url < <(jq -r '
   [ .[]
     | (.files | map({key: .filename, value: .}) | from_entries) as $f
