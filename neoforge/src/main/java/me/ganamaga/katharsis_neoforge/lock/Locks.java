@@ -109,7 +109,8 @@ public final class Locks {
         });
     }
 
-    private boolean isHeld(ServerPlayer player) {
+    /** Whether {@code player} is still waiting to log in on the proxy. */
+    public boolean isHeld(ServerPlayer player) {
         Lock lock = held.get(player.getUUID());
         return lock != null && lock.player() == player && lock.isLocked();
     }

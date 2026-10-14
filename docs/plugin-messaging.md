@@ -295,8 +295,9 @@ public final class LanguageClient extends JavaPlugin implements PluginMessageLis
 
 The proxy cannot stop a player's chat itself: cancelling a signed chat message
 on its way through disconnects the client. So mutes are enforced by the
-companion plugin, and the proxy tells it who is muted on its server over a
-second channel, `katharsis:punish`. See [punishments.md](punishments.md) for the
+companion plugin, or the NeoForge mod, which speaks the same protocol, and the
+proxy tells it who is muted on its server over a second channel,
+`katharsis:punish`. See [punishments.md](punishments.md) for the
 mutes themselves.
 
 | Operation       | Direction        | Meaning                                                    |

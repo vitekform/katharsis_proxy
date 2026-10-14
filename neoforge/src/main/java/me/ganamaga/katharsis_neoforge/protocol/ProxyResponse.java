@@ -1,0 +1,88 @@
+package me.ganamaga.katharsis_neoforge.protocol;
+
+import java.util.LinkedHashMap;
+import java.util.Optional;
+
+/**
+ * A decoded reply from the proxy.
+ *
+ * @param operation the operation being answered
+ * @param requestId echoed back, used to match this to its request
+ * @param uuid      the player the operation concerned
+ * @param success   whether the operation was applied
+ * @param language  resulting language on success, empty on failure
+ * @param error     error code on failure, empty on success
+ * @param menu      selector payload, present only on {@code get_language_menu}
+ * @param serverName the name the proxy knows this server by, present only on
+ *                   {@code announce}; empty when the proxy did not send one
+ * @param settings  settings payload, present only on {@code get_settings_menu}
+ */
+public record ProxyResponse(String operation, String requestId, String uuid,
+                            boolean success, String language, String error,
+                            Menu menu, String serverName, Settings settings) {
+
+    public ProxyResponse {
+        serverName = serverName == null ? "" : serverName;
+    }
+
+    /**
+     * The selector payload.
+     *
+     * @param title       menu title, as a MiniMessage template
+     * @param selectHint  lore for a language the player may pick
+     * @param currentHint lore for the language the player already uses
+     * @param languages   language code to its own display name, in menu order
+     */
+    public record Menu(String title, String selectHint, String currentHint,
+                       LinkedHashMap<String, String> languages) {
+
+        public Menu {
+            languages = new LinkedHashMap<>(languages);
+        }
+
+        @Override
+        public LinkedHashMap<String, String> languages() {
+            return new LinkedHashMap<>(languages);
+        }
+    }
+
+    /**
+     * The settings payload. Every string is a MiniMessage template.
+     *
+     * @param title              menu title
+     * @param languageLabel      name of the item that opens the language selector
+     * @param languageHint       its lore, with a {@code <language>} placeholder
+     * @param languageName       the current language's own name, for that placeholder
+     * @param discordChat        whether Discord chat is shown to the player
+     * @param discordChatLabel   name of the item that shows or hides Discord chat
+     * @param discordChatOnHint  its lore while shown
+     * @param discordChatOffHint its lore while hidden
+     * @param promptTitle        title of the first-join Discord chat question
+     * @param promptYes          the answer that shows Discord chat
+     * @param promptNo           the answer that keeps it hidden
+     */
+    public record Settings(String title, String languageLabel, String languageHint, String languageName,
+                           boolean discordChat, String discordChatLabel, String discordChatOnHint,
+                           String discordChatOffHint, String promptTitle, String promptYes, String promptNo) {
+    }
+
+    public Optional<Menu> menuData() {
+        return Optional.ofNullable(menu);
+    }
+
+    /** The menu payload, or a failure if this response did not carry one. */
+    public Menu requireMenu() {
+        if (menu == null) {
+            throw new IllegalStateException("response to " + operation + " carries no menu");
+        }
+        return menu;
+    }
+
+    /** The settings payload, or a failure if this response did not carry one. */
+    public Settings requireSettings() {
+        if (settings == null) {
+            throw new IllegalStateException("response to " + operation + " carries no settings");
+        }
+        return settings;
+    }
+}

@@ -22,8 +22,8 @@ import java.util.concurrent.TimeUnit;
  * their defaults on first start. A newer jar for this Minecraft line is
  * downloaded to {@code katharsis/updates/} in the game folder and moved over
  * this one in {@code mods/} once the server has stopped, so the next start
- * runs it. There is no command: this mod has no other reason to reach into
- * the server's command and permission APIs, which move between versions.</p>
+ * runs it. There is no command: one for staff only would need the server's
+ * permission API, which 26.1 replaced outright.</p>
  */
 public final class ModUpdates {
 

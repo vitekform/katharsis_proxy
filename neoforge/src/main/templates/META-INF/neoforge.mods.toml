@@ -8,7 +8,8 @@ version = "${mod_version}"
 displayName = "Katharsis"
 description = '''
 Backend companion for the Katharsis Velocity proxy. Holds every player who
-joins in place until the proxy says they have logged in. Server-side only.
+joins in place until the proxy says they have logged in, and serves /language,
+/settings, the chat log and mutes as the Paper companion does. Server-side only.
 '''
 
 [[dependencies.katharsis]]

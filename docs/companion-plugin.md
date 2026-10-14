@@ -1,7 +1,9 @@
 # The Paper companion
 
 `paper/` holds a backend plugin that replaces the proxy's `/language` with a
-clickable selector, and adds a `/settings` menu.
+clickable selector, and adds a `/settings` menu. The NeoForge mod in `neoforge/`
+does all of the same on NeoForge servers; see
+[On NeoForge servers](#on-neoforge-servers).
 
 ## What each side owns
 
@@ -217,7 +219,9 @@ aside if you want both at once.
 1. Put `katharsis_proxy-<version>.jar` in the proxy's `plugins/`.
 2. Put the companion jar for your server's line in every backend's `plugins/`
    — `katharsis_paper-<version>.jar` for Paper 1.21.x, or
-   `katharsis_paper-<version>-mc26.jar` for 26.x.
+   `katharsis_paper-<version>-mc26.jar` for 26.x. On a NeoForge backend, put
+   the Katharsis mod for its Minecraft version in `mods/` instead; see
+   [building.md](building.md#commands) for which jar is which.
 3. Start the proxy first, then the backends.
 
 Order does not matter: the companion announces as soon as a player is connected,
@@ -233,6 +237,37 @@ timeout, the [update settings](updates.md), and the few messages it needs when
 the proxy did not answer (because at that moment there is no language to answer
 in) or that only an admin sees. Everything else lives in the proxy's `lang/`
 files.
+
+## On NeoForge servers
+
+The Katharsis NeoForge mod (`neoforge/`), which holds players until they log in
+on a [login server](authentication.md#modded-servers), is also the companion for
+NeoForge backends. It speaks the same three channels the same way, so the proxy
+cannot tell it from the plugin, and everything above holds there too: the
+announcement, `/language` (and `/lang`), `/settings`, the first-join selector
+and Discord chat question, the chat log, and mutes. It is server-side only;
+players need nothing installed, and the menus are plain chests to their client.
+
+Where it differs:
+
+- **Settings** live in `config/katharsis-companion.properties`, written with
+  their defaults on first start: `server-id`, `request-timeout-seconds`, and the
+  two messages for when the proxy did not answer, `proxy-unreachable` and
+  `players-only`. Update settings stay in `config/katharsis-updates.properties`.
+- **There is no `/kcompanion`.** The mod checks for updates on its own, as
+  described in [updates.md](updates.md), but has no command to do it by hand:
+  the permission API it would need moved between Minecraft versions.
+- **Text.** NeoForge has no Adventure, so the mod renders the proxy's MiniMessage
+  templates itself. It knows colours (named and hex), the decorations and their
+  negations, `<reset>` and `<newline>` — everything the proxy's `lang/` files
+  use. Hover, click and gradient tags keep their text without the effect, and
+  any other tag stays as written, as MiniMessage leaves an unknown tag.
+- **The first-join selector waits for the login.** On a login server a new
+  player is held until they log in, and a held player can neither click a chest
+  nor close it, so the selector opens a second after they are let go instead
+  of a second after they arrive.
+- **Mutes** block chat and the proxy's `punishments.muted-commands` exactly as
+  on Paper, before any other mod sees them.
 
 ## Adding a language
 

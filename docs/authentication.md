@@ -93,7 +93,9 @@ to a server that is not running NeoForge"*. Players heading for such a server
 therefore log in **on the server itself**, and never see the void.
 
 1. Install the Katharsis NeoForge mod (`neoforge/`) on the server. It is
-   server-side only; players do not need it.
+   server-side only; players do not need it. It is also the server's companion,
+   with `/language`, `/settings`, the chat log and mutes; see
+   [companion-plugin.md](companion-plugin.md#on-neoforge-servers).
 2. Name the server under `auth.login-servers` in `config.yml`, as it is named in
    `velocity.toml`:
 

@@ -6,6 +6,9 @@ import net.minecraft.resources.Identifier;
 final class Ids {
 
     static final Identifier AUTH = Identifier.fromNamespaceAndPath("katharsis", "auth");
+    static final Identifier LANGUAGE = Identifier.fromNamespaceAndPath("katharsis", "language");
+    static final Identifier CHAT = Identifier.fromNamespaceAndPath("katharsis", "chat");
+    static final Identifier PUNISH = Identifier.fromNamespaceAndPath("katharsis", "punish");
 
     private Ids() {
     }

@@ -16,8 +16,10 @@ This repository holds three projects, built separately:
 - the root project — the Velocity proxy plugin
 - `paper/` — the Paper companion, see [companion-plugin.md](companion-plugin.md)
 - `neoforge/` — the NeoForge mod that lets players log in on modded servers,
-  see [authentication.md](authentication.md#modded-servers). It builds with
-  Gradle (the wrapper is checked in), since NeoForge's tooling is Gradle-only.
+  see [authentication.md](authentication.md#modded-servers), and is their
+  companion too, see [companion-plugin.md](companion-plugin.md#on-neoforge-servers).
+  It builds with Gradle (the wrapper is checked in), since NeoForge's tooling is
+  Gradle-only.
 
 They share a wire protocol and nothing else, except the update checker in
 `updater/`, which each build compiles in as sources (see
@@ -73,8 +75,11 @@ cd neoforge && ./gradlew build -Pline=26
 | `1.21.11` | 1.21.11            | NeoForge 21.11| 21  | `katharsis_neoforge-<version>-mc1.21.11.jar` |
 | `26`      | 26.1.2 – 26.x      | NeoForge 26.1 | 25  | `katharsis_neoforge-<version>-mc26.jar`    |
 
-1.21.11 renamed `ResourceLocation` to `Identifier`, the one type the mod names
-that changed, and the 26 line is Java 25 bytecode. Each line is built against
+1.21.11 renamed `ResourceLocation` to `Identifier`, and 26.1 renamed `ClickType`
+to `ContainerInput`: the two types the mod names that changed. Each spelling
+lives in its own source folder (`src/resourcelocation`, `src/identifier`,
+`src/clicktype`, `src/containerinput`), picked per line in `build.gradle`. The 26
+line is also Java 25 bytecode. Each line is built against
 the oldest NeoForge it covers. `neoforge/compat-check.sh` compiles the mod
 against the newest NeoForge of every Minecraft version in between. The first
 time, each version has Minecraft decompiled for it, which takes a few minutes.

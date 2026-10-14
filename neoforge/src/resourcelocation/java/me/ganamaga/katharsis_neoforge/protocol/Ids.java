@@ -6,6 +6,9 @@ import net.minecraft.resources.ResourceLocation;
 final class Ids {
 
     static final ResourceLocation AUTH = ResourceLocation.fromNamespaceAndPath("katharsis", "auth");
+    static final ResourceLocation LANGUAGE = ResourceLocation.fromNamespaceAndPath("katharsis", "language");
+    static final ResourceLocation CHAT = ResourceLocation.fromNamespaceAndPath("katharsis", "chat");
+    static final ResourceLocation PUNISH = ResourceLocation.fromNamespaceAndPath("katharsis", "punish");
 
     private Ids() {
     }

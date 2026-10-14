@@ -13,17 +13,18 @@ plugins {
  *
  *   ./gradlew build                    1.21.1 - 1.21.10   Java 21
  *   ./gradlew build -Pline=1.21.11     1.21.11            Java 21  (ResourceLocation became Identifier)
- *   ./gradlew build -Pline=26          26.1.2 - 26.x      Java 25  (every 26.x NeoForge jar is Java 25 bytecode)
+ *   ./gradlew build -Pline=26          26.1.2 - 26.x      Java 25  (every 26.x NeoForge jar is Java 25 bytecode,
+ *                                                                and ClickType became ContainerInput)
  *
  * -Pneo_version=... compiles against another NeoForge of the same line, which
  * is how compat-check.sh walks the range.
  */
 def lines = [
-        '1.21'   : [neo: '21.1.252', java: 21, ids: 'resourcelocation',
+        '1.21'   : [neo: '21.1.252', java: 21, ids: 'resourcelocation', clicks: 'clicktype',
                     minecraft: '[1.21.1,1.21.11)', neoRange: '[21.1,21.11)', classifier: ''],
-        '1.21.11': [neo: '21.11.45', java: 21, ids: 'identifier',
+        '1.21.11': [neo: '21.11.45', java: 21, ids: 'identifier', clicks: 'clicktype',
                     minecraft: '[1.21.11,1.22)', neoRange: '[21.11,22)', classifier: 'mc1.21.11'],
-        '26'     : [neo: '26.1.2.112', java: 25, ids: 'identifier',
+        '26'     : [neo: '26.1.2.112', java: 25, ids: 'identifier', clicks: 'containerinput',
                     minecraft: '[26.1.2,27)', neoRange: '[26.1.2,27)', classifier: 'mc26'],
 ]
 def lineName = findProperty('line') ?: '1.21'
@@ -41,7 +42,9 @@ tasks.named('jar') {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(line.java as int)
 
+// The few classes whose Minecraft names differ between lines, one folder per spelling.
 sourceSets.main.java.srcDir "src/${line.ids}/java"
+sourceSets.main.java.srcDir "src/${line.clicks}/java"
 // The update checker, shared with the proxy and the companion; its tests run
 // in the proxy's build. See ../updater/README.md.
 sourceSets.main.java.srcDir '../updater/src/main/java'
@@ -74,6 +77,8 @@ dependencies {
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    // Minecraft ships Gson, but the tests run without Minecraft on the classpath.
+    testImplementation "com.google.code.gson:gson:${gson_version}"
 }
 
 // neoforge.mods.toml with this line's version ranges filled in, and

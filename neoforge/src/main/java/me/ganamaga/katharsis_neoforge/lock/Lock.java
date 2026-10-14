@@ -5,6 +5,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import me.ganamaga.katharsis_neoforge.protocol.AuthCodec;
 import me.ganamaga.katharsis_neoforge.protocol.AuthPayload;
+import me.ganamaga.katharsis_neoforge.protocol.ProxyPayload;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
@@ -63,6 +64,11 @@ public final class Lock extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext context, Object message) throws Exception {
         if (message instanceof ServerboundCustomPayloadPacket custom && custom.payload() instanceof AuthPayload auth) {
             receive(auth);
+            return;
+        }
+        if (message instanceof ServerboundCustomPayloadPacket custom && custom.payload() instanceof ProxyPayload) {
+            // From the proxy, not the player: the inbox behind this takes it.
+            super.channelRead(context, message);
             return;
         }
         if (locked && message instanceof Packet<?> packet && !passes(packet)) {

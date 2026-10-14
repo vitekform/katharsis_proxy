@@ -1,0 +1,41 @@
+package me.ganamaga.katharsis_neoforge.protocol;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+
+/**
+ * Encodes chat reports for the proxy.
+ *
+ * <p>Deliberately free of Minecraft types so the wire format can be tested without
+ * a running server.</p>
+ */
+public final class ChatCodec {
+
+    /** HTML escaping off, so {@code <} reaches the proxy as itself rather than {@code <}. */
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+
+    private ChatCodec() {
+    }
+
+    /**
+     * Builds a {@code player_msg} report as UTF-8 JSON.
+     *
+     * @param serverId this server's configured id, or {@code null} or blank to
+     *                 leave it out and let the proxy use the server's name
+     */
+    public static byte[] encodePlayerMessage(String serverId, UUID player, String playerName, String content) {
+        JsonObject json = new JsonObject();
+        json.addProperty("action", ChatChannel.ACTION_PLAYER_MSG);
+        if (serverId != null && !serverId.isBlank()) {
+            json.addProperty("server", serverId);
+        }
+        json.addProperty("player", player.toString());
+        json.addProperty("player_name", playerName);
+        json.addProperty("content", content);
+        return GSON.toJson(json).getBytes(StandardCharsets.UTF_8);
+    }
+}
