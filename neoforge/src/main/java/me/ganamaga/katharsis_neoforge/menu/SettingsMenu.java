@@ -6,8 +6,6 @@ import me.ganamaga.katharsis_neoforge.proxy.ProxyClient;
 import me.ganamaga.katharsis_neoforge.text.Texts;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.SimpleContainer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.slf4j.Logger;
 
 import java.util.function.BiConsumer;
@@ -74,9 +72,9 @@ public final class SettingsMenu {
     private void showPrompt(ServerPlayer player, SettingsMenuModel model) {
         SimpleContainer items = new SimpleContainer(SettingsMenuModel.SIZE);
         items.setItem(SettingsMenuModel.LEFT_SLOT,
-                Icons.describe(new ItemStack(Items.LIME_WOOL), model.strings().promptYes(), null, false));
+                Icons.describe(Icons.item("minecraft:lime_wool"), model.strings().promptYes(), null, false));
         items.setItem(SettingsMenuModel.RIGHT_SLOT,
-                Icons.describe(new ItemStack(Items.RED_WOOL), model.strings().promptNo(), null, false));
+                Icons.describe(Icons.item("minecraft:red_wool"), model.strings().promptNo(), null, false));
         // Closing it without answering leaves Discord chat hidden, so only clicks matter.
         DisplayMenu.open(player, Texts.component(model.strings().promptTitle()), items, (menu, viewer, slot) ->
                 SettingsMenuModel.answerAt(slot).ifPresent(shown -> {
@@ -112,7 +110,7 @@ public final class SettingsMenu {
             items.setItem(SettingsMenuModel.LEFT_SLOT, Icons.describe(Icons.flag(model.flagModel()),
                     model.strings().languageLabel(), Texts.itemText(languageHint), false));
             items.setItem(SettingsMenuModel.RIGHT_SLOT, Icons.describe(
-                    new ItemStack(model.discordChat() ? Items.LIME_DYE : Items.GRAY_DYE),
+                    Icons.item(model.discordChat() ? "minecraft:lime_dye" : "minecraft:gray_dye"),
                     model.strings().discordChatLabel(), Texts.itemText(model.discordChatHint()),
                     model.discordChat()));
         }

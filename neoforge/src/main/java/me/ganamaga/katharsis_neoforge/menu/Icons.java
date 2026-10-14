@@ -41,6 +41,22 @@ final class Icons {
         return item;
     }
 
+    /**
+     * The item called {@code id}, such as {@code minecraft:lime_wool}, or paper
+     * if there is none.
+     *
+     * <p>Read by id because 26.2 folded the sixteen colours of wool and dye into
+     * one {@code ColorCollection} each, so the constants for them only exist on
+     * some lines.</p>
+     */
+    static ItemStack item(String id) {
+        JsonObject json = new JsonObject();
+        json.addProperty("id", id);
+        json.addProperty("count", 1);
+        return ItemStack.CODEC.parse(JsonOps.INSTANCE, json).result()
+                .orElseGet(() -> new ItemStack(Items.PAPER));
+    }
+
     private static <T> void setParsed(ItemStack item, DataComponentType<T> type, JsonObject json) {
         type.codecOrThrow().parse(JsonOps.INSTANCE, json).result().ifPresent(value -> item.set(type, value));
     }
