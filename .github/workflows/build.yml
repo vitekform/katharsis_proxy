@@ -74,6 +74,7 @@ env:
   # Java 25 bytecode, which an older javac cannot read at all.
   COMPANION_26_JDK_VERSION: '25'
   RSYS_PROJECT: katharsis
+  GN_ACCEPT_TERMS: "1"
 
 jobs:
   plan:
