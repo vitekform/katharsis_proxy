@@ -438,6 +438,9 @@ jobs:
             if [ -n "$COMMIT_MESSAGE" ]; then echo; echo "$COMMIT_MESSAGE"; fi
           } > notes.md
 
+      - name: Check release variant mappings
+        run: python3 ci/test_rsys_variants.py
+
       - name: Publish the release
         run: |
           set -euo pipefail
@@ -446,6 +449,9 @@ jobs:
           if [ "$(gn rsys show "$RSYS_PROJECT" "$VERSION" --json | jq -r .status)" = PUBLISHED ]; then
             echo "$RSYS_PROJECT $VERSION is already published"
           else
-            gn rsys publish "$RSYS_PROJECT" "$VERSION"
+            # One complete manifest after every upload succeeds; upload legs leave it alone.
+            gn rsys show "$RSYS_PROJECT" "$VERSION" --json > draft.json
+            python3 ci/rsys_variants.py < draft.json > variants.json
+            gn rsys publish "$RSYS_PROJECT" "$VERSION" --variants-file variants.json
           fi
           echo "### Published Katharsis $VERSION to https://rsys.ganamaga.me/$RSYS_PROJECT" >> "$GITHUB_STEP_SUMMARY"
