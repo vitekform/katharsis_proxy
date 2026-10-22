@@ -6,6 +6,7 @@ import me.ganamaga.gnlib.api.remote.RemoteContent;
 import me.ganamaga.katharsis_neoforge.identity.BackendIdentity;
 import me.ganamaga.katharsis_neoforge.lock.Lock;
 import me.ganamaga.katharsis_neoforge.lock.Locks;
+import me.ganamaga.katharsis_neoforge.proxy.ProxyLink;
 
 /**
  * The only class that names GNLib's types. Loaded only from
@@ -30,7 +31,7 @@ final class GnlibHooks {
         // GNLib's release sends the content keys, and the client's answers must
         // pass the lock, so it runs after the lock is open (Lock#receive), on
         // the server thread as GNLib requires.
-        locks.onUnlock((player, connection) -> player.server.execute(() -> RemoteAuthGates.release(connection)));
+        locks.onUnlock((player, connection) -> ProxyLink.server(player).execute(() -> RemoteAuthGates.release(connection)));
         RemoteContent.setCertificateProvider(() -> {
             BackendIdentity.Presented presented = identity == null
                     ? null : identity.presented(System.currentTimeMillis() / 1000L);
