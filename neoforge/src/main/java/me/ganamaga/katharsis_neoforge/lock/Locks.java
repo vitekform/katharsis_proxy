@@ -43,6 +43,22 @@ public final class Locks {
 
     private int ticks;
 
+    private volatile Lock.UnlockListener unlockListener = (player, connection) -> {
+    };
+
+    /**
+     * Sets what happens when a lock opens, e.g. GNLib's auth gate being
+     * released. Before any player connects.
+     */
+    public void onUnlock(Lock.UnlockListener listener) {
+        this.unlockListener = listener;
+    }
+
+    /** The lock on {@code connection}, or null when it has none (yet). */
+    public static Lock of(Connection connection) {
+        return connection.channel().pipeline().get(Lock.NAME) instanceof Lock lock ? lock : null;
+    }
+
     /** While the connection is still being configured: before the player can send anything that counts. */
     public void onConfiguration(RegisterConfigurationTasksEvent event) {
         Connection connection = event.getListener().getConnection();
@@ -51,7 +67,7 @@ public final class Locks {
             return;
         }
         try {
-            pipeline.addBefore(Lock.PACKET_HANDLER, Lock.NAME, new Lock(connection));
+            pipeline.addBefore(Lock.PACKET_HANDLER, Lock.NAME, new Lock(connection, unlockListener));
         } catch (NoSuchElementException | IllegalArgumentException e) {
             LOGGER.error("Could not put the login lock on a connection; refusing it.", e);
             event.getListener().disconnect(Component.literal(REFUSED));

@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import me.ganamaga.katharsis_neoforge.chat.ChatReporter;
 import me.ganamaga.katharsis_neoforge.command.CompanionCommands;
 import me.ganamaga.katharsis_neoforge.config.CompanionSettings;
+import me.ganamaga.katharsis_neoforge.gnlib.GnlibSupport;
 import me.ganamaga.katharsis_neoforge.lock.Locks;
 import me.ganamaga.katharsis_neoforge.menu.LanguageMenu;
 import me.ganamaga.katharsis_neoforge.menu.SettingsMenu;
@@ -94,7 +95,8 @@ public final class KatharsisNeoForge {
 
     /** What the Paper companion plugin does, on the same channels. */
     private void setUpCompanion(IEventBus modBus, String version) {
-        CompanionSettings settings = loadSettings(FMLPaths.CONFIGDIR.get().resolve(CompanionSettings.FILE_NAME));
+        Path settingsFile = FMLPaths.CONFIGDIR.get().resolve(CompanionSettings.FILE_NAME);
+        CompanionSettings settings = loadSettings(settingsFile);
         CompanionMessages messages = new CompanionMessages(settings);
         String serverId = settings.serverId();
 
@@ -104,6 +106,11 @@ public final class KatharsisNeoForge {
         // First, so the replies to whatever the other listeners ask on join can be heard.
         NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, PlayerEvent.PlayerLoggedInEvent.class,
                 link::onLoggedIn);
+
+        // GNLib's remote content behind the proxy, only when GNLib is installed:
+        // its auth gate follows the login lock, and this server presents the
+        // network's identity with a certificate from the proxy.
+        GnlibSupport.install(locks, link, settings, settingsFile);
 
         ProxyClient client = new ProxyClient(link, settings.requestTimeoutSeconds());
         NeoForge.EVENT_BUS.addListener(ServerStoppingEvent.class, event -> client.cancelAll());

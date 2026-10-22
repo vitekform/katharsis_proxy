@@ -37,15 +37,24 @@ public final class Lock extends ChannelInboundHandlerAdapter {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
+    /** Told when the lock opens; see {@link Locks#onUnlock}. */
+    @FunctionalInterface
+    public interface UnlockListener {
+        /** On the network thread, once the lock is already open. */
+        void unlocked(ServerPlayer player, Connection connection);
+    }
+
     private final Connection connection;
+    private final UnlockListener listener;
 
     private volatile boolean locked = true;
 
     /** Null until the player is in the world; an unlock before that is ignored. */
     private volatile ServerPlayer player;
 
-    public Lock(Connection connection) {
+    public Lock(Connection connection, UnlockListener listener) {
         this.connection = connection;
+        this.listener = listener;
     }
 
     public boolean isLocked() {
@@ -99,6 +108,8 @@ public final class Lock extends ChannelInboundHandlerAdapter {
         if (locked) {
             locked = false;
             LOGGER.info("{} has logged in on the proxy and may play.", current.getScoreboardName());
+            // After opening: whatever the listener sets off may need the player's answers to pass.
+            listener.unlocked(current, connection);
         }
     }
 }

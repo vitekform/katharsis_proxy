@@ -10,8 +10,8 @@ import java.util.List;
 
 /**
  * A message on one of the channels this mod shares with the proxy's companion
- * protocol — {@code katharsis:language}, {@code katharsis:chat} and
- * {@code katharsis:punish} — carried as the raw bytes the Paper companion sends
+ * protocol — {@code katharsis:language}, {@code katharsis:chat},
+ * {@code katharsis:punish} and {@code katharsis:identity} — carried as the raw bytes the Paper companion sends
  * and receives. The codecs in this package read and write them.
  *
  * <p>Registered like {@link AuthPayload}, and for the same reasons: optional,
@@ -24,13 +24,19 @@ public record ProxyPayload(CustomPacketPayload.Type<ProxyPayload> type, byte[] d
     public static final CustomPacketPayload.Type<ProxyPayload> LANGUAGE = new CustomPacketPayload.Type<>(Ids.LANGUAGE);
     public static final CustomPacketPayload.Type<ProxyPayload> CHAT = new CustomPacketPayload.Type<>(Ids.CHAT);
     public static final CustomPacketPayload.Type<ProxyPayload> PUNISH = new CustomPacketPayload.Type<>(Ids.PUNISH);
+    /**
+     * Certificates for GNLib's network identity. A proxy channel like the
+     * others, so the login lock passes the proxy's answer to the inbox even on
+     * a held player's connection.
+     */
+    public static final CustomPacketPayload.Type<ProxyPayload> IDENTITY = new CustomPacketPayload.Type<>(Ids.IDENTITY);
 
     /** The version these channels are registered under; the wire formats carry none of their own. */
     private static final String PROTOCOL = "1";
 
     public static void register(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar(PROTOCOL).optional();
-        for (CustomPacketPayload.Type<ProxyPayload> type : List.of(LANGUAGE, CHAT, PUNISH)) {
+        for (CustomPacketPayload.Type<ProxyPayload> type : List.of(LANGUAGE, CHAT, PUNISH, IDENTITY)) {
             registrar.playBidirectional(type, codec(type), (payload, context) -> {
             });
         }

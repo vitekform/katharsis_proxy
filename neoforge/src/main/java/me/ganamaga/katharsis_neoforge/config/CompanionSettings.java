@@ -6,6 +6,9 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 /**
@@ -16,6 +19,8 @@ import java.util.Properties;
 public final class CompanionSettings {
 
     public static final String FILE_NAME = "katharsis-companion.properties";
+
+    private static final String NETWORK_FINGERPRINT = "network-fingerprint";
 
     private static final long DEFAULT_TIMEOUT_SECONDS = 5L;
     private static final String DEFAULT_PROXY_UNREACHABLE =
@@ -66,6 +71,43 @@ public final class CompanionSettings {
         } catch (NumberFormatException e) {
             return DEFAULT_TIMEOUT_SECONDS;
         }
+    }
+
+    /**
+     * The fingerprint of the proxy's GNLib network key ({@code /kidentity} on
+     * the proxy), as typed; blank when none is set. Only read with GNLib
+     * installed.
+     */
+    public String networkFingerprint() {
+        return properties.getProperty(NETWORK_FINGERPRINT, "").strip();
+    }
+
+    /**
+     * Sets {@code network-fingerprint} in {@code file}, keeping every other
+     * line and comment as it is: the line is replaced where it is, or added at
+     * the end. Written to a temporary file first, so a crash leaves the old one.
+     */
+    public static void writeNetworkFingerprint(Path file, String fingerprint) throws IOException {
+        List<String> lines = Files.exists(file)
+                ? new ArrayList<>(Files.readAllLines(file, StandardCharsets.UTF_8))
+                : new ArrayList<>();
+        String line = NETWORK_FINGERPRINT + "=" + fingerprint;
+        boolean replaced = false;
+        for (int i = 0; i < lines.size(); i++) {
+            String trimmed = lines.get(i).strip();
+            if (trimmed.startsWith(NETWORK_FINGERPRINT)
+                    && trimmed.substring(NETWORK_FINGERPRINT.length()).strip().matches("[=:].*|")) {
+                lines.set(i, line);
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            lines.add(line);
+        }
+        Path temporary = file.resolveSibling(file.getFileName() + ".tmp");
+        Files.write(temporary, lines, StandardCharsets.UTF_8);
+        Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
     }
 
     /** A MiniMessage template. */

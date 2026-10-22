@@ -25,3 +25,4 @@ type = "required"
 versionRange = "${minecraft_version_range}"
 ordering = "NONE"
 side = "SERVER"
+${gnlib_dependency}

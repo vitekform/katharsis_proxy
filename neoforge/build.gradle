@@ -20,11 +20,11 @@ plugins {
  * is how compat-check.sh walks the range.
  */
 def lines = [
-        '1.21'   : [neo: '21.1.252', java: 21, ids: 'resourcelocation', clicks: 'clicktype',
+        '1.21'   : [neo: '21.1.252', java: 21, ids: 'resourcelocation', clicks: 'clicktype', gnlib: 'gnlib',
                     minecraft: '[1.21.1,1.21.11)', neoRange: '[21.1,21.11)', classifier: ''],
-        '1.21.11': [neo: '21.11.45', java: 21, ids: 'identifier', clicks: 'clicktype',
+        '1.21.11': [neo: '21.11.45', java: 21, ids: 'identifier', clicks: 'clicktype', gnlib: 'nognlib',
                     minecraft: '[1.21.11,1.22)', neoRange: '[21.11,22)', classifier: 'mc1.21.11'],
-        '26'     : [neo: '26.1.2.112', java: 25, ids: 'identifier', clicks: 'containerinput',
+        '26'     : [neo: '26.1.2.112', java: 25, ids: 'identifier', clicks: 'containerinput', gnlib: 'nognlib',
                     minecraft: '[26.1.2,27)', neoRange: '[26.1.2,27)', classifier: 'mc26'],
 ]
 def lineName = findProperty('line') ?: '1.21'
@@ -45,6 +45,10 @@ java.toolchain.languageVersion = JavaLanguageVersion.of(line.java as int)
 // The few classes whose Minecraft names differ between lines, one folder per spelling.
 sourceSets.main.java.srcDir "src/${line.ids}/java"
 sourceSets.main.java.srcDir "src/${line.clicks}/java"
+// GNLib serves remote content on 1.21.1 only: that line hooks the login lock
+// and the network identity into it when GNLib is installed, the others do
+// nothing. GNLib is never required; see docs/companion-plugin.md.
+sourceSets.main.java.srcDir "src/${line.gnlib}/java"
 // The update checker, shared with the proxy and the companion; its tests run
 // in the proxy's build. See ../updater/README.md.
 sourceSets.main.java.srcDir '../updater/src/main/java'
@@ -71,9 +75,24 @@ neoForge {
 
 repositories {
     mavenCentral()
+    // GNLib, compiled against on the 1.21 line only, never bundled.
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://rsys.ganamaga.me/gnlib/public/maven' }
+        }
+        filter {
+            includeGroup 'me.ganamaga.gnlib.neoforge'
+        }
+    }
 }
 
 dependencies {
+    if (line.gnlib == 'gnlib') {
+        // Only its api.remote types, and only in classes loaded once GNLib is known to be there.
+        compileOnly("me.ganamaga.gnlib.neoforge:gnlib-neoforge:${gnlib_version}+1.21.1") {
+            transitive = false
+        }
+    }
     testImplementation platform("org.junit:junit-bom:${junit_version}")
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -91,6 +110,14 @@ def generateModMetadata = tasks.register('generateModMetadata', ProcessResources
             neo_version_range      : line.neoRange,
             release                : findProperty('release') ?: '',
             classifier             : line.classifier,
+            gnlib_dependency       : line.gnlib == 'gnlib' ? """
+[[dependencies.katharsis]]
+modId = "gnlib"
+type = "optional"
+versionRange = "[${gnlib_version},)"
+ordering = "NONE"
+side = "SERVER"
+""" : '',
     ]
     inputs.properties properties
     expand properties

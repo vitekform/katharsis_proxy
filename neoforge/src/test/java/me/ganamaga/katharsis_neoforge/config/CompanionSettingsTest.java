@@ -55,4 +55,28 @@ class CompanionSettingsTest {
         assertEquals(5L, settings.requestTimeoutSeconds());
         assertEquals("<red>Only players can use this command.", settings.playersOnly());
     }
+
+    @Test
+    @DisplayName("network-fingerprint is replaced where it stands, every other line kept")
+    void writesNetworkFingerprint() throws IOException {
+        Path file = config.resolve(CompanionSettings.FILE_NAME);
+        Files.writeString(file, "# comment\nnetwork-fingerprint-old=1\nnetwork-fingerprint = GN1:OLD\nserver-id=x\n");
+
+        CompanionSettings.writeNetworkFingerprint(file, "GN1:NEW");
+
+        assertEquals("# comment\nnetwork-fingerprint-old=1\nnetwork-fingerprint=GN1:NEW\nserver-id=x\n",
+                Files.readString(file));
+        assertEquals("GN1:NEW", CompanionSettings.load(file).networkFingerprint());
+    }
+
+    @Test
+    @DisplayName("network-fingerprint is added to a file from before it existed")
+    void addsNetworkFingerprint() throws IOException {
+        Path file = config.resolve(CompanionSettings.FILE_NAME);
+        Files.writeString(file, "server-id=x\n");
+
+        CompanionSettings.writeNetworkFingerprint(file, "GN1:NEW");
+
+        assertEquals("server-id=x\nnetwork-fingerprint=GN1:NEW\n", Files.readString(file));
+    }
 }

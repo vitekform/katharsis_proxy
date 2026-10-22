@@ -9,6 +9,7 @@ final class Ids {
     static final Identifier LANGUAGE = Identifier.fromNamespaceAndPath("katharsis", "language");
     static final Identifier CHAT = Identifier.fromNamespaceAndPath("katharsis", "chat");
     static final Identifier PUNISH = Identifier.fromNamespaceAndPath("katharsis", "punish");
+    static final Identifier IDENTITY = Identifier.fromNamespaceAndPath("katharsis", "identity");
 
     private Ids() {
     }

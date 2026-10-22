@@ -9,6 +9,7 @@ final class Ids {
     static final ResourceLocation LANGUAGE = ResourceLocation.fromNamespaceAndPath("katharsis", "language");
     static final ResourceLocation CHAT = ResourceLocation.fromNamespaceAndPath("katharsis", "chat");
     static final ResourceLocation PUNISH = ResourceLocation.fromNamespaceAndPath("katharsis", "punish");
+    static final ResourceLocation IDENTITY = ResourceLocation.fromNamespaceAndPath("katharsis", "identity");
 
     private Ids() {
     }
