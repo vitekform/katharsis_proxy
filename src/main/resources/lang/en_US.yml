@@ -191,3 +191,8 @@ update-downloaded: "<green>Katharsis <white><latest></white> is downloaded</gree
 update-no-file: "<red>Katharsis <white><latest></white> is out, but it has no proxy jar to update to.</red>"
 update-failed: "<red>Could not update: <white><error></white></red>"
 update-disabled: "<gray>Update checks are off in config.yml (updates.enabled).</gray>"
+identity-fingerprint: "<gray>The network's GNLib identity is <white><fingerprint></white>. Put it in <gold>network-fingerprint</gold> on every NeoForge backend running GNLib; <gold>/kidentity rotate</gold> changes the key.</gray>"
+identity-none: "<red>This proxy has no GNLib network identity; the proxy log says why.</red>"
+identity-rotate-confirm: "<gold>This replaces the network key <white><fingerprint></white>.</gold> <gray>GNLib players follow the change for 180 days; anyone who joins later must check the new fingerprint. Type <gold>/kidentity rotate confirm</gold> to go ahead.</gray>"
+identity-rotated: "<green>The network key is now <white><new></white></green> <gray>(was <old>). Backends follow it with their next certificate; their network-fingerprint is updated as they do.</gray>"
+identity-rotate-failed: "<red>Could not rotate the network key: <white><error></white></red>"

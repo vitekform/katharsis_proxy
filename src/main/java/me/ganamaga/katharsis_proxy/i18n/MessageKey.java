@@ -463,7 +463,22 @@ public enum MessageKey {
     UPDATE_FAILED("update-failed"),
 
     /** updates.enabled is false. Placeholders: none. */
-    UPDATE_DISABLED("update-disabled");
+    UPDATE_DISABLED("update-disabled"),
+
+    /** /kidentity on its own. Placeholders: {@code <fingerprint>}. */
+    IDENTITY_FINGERPRINT("identity-fingerprint"),
+
+    /** network.key is missing or unusable. Placeholders: none. */
+    IDENTITY_NONE("identity-none"),
+
+    /** /kidentity rotate without confirm. Placeholders: {@code <fingerprint>}. */
+    IDENTITY_ROTATE_CONFIRM("identity-rotate-confirm"),
+
+    /** Placeholders: {@code <old>}, {@code <new>}. */
+    IDENTITY_ROTATED("identity-rotated"),
+
+    /** Placeholders: {@code <error>}. */
+    IDENTITY_ROTATE_FAILED("identity-rotate-failed");
 
     private final String key;
 

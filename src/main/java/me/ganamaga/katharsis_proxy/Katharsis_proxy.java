@@ -21,6 +21,7 @@ import me.ganamaga.katharsis_proxy.auth.PasswordPolicy;
 import me.ganamaga.katharsis_proxy.command.AuthCommand;
 import me.ganamaga.katharsis_proxy.command.KatharsisCommand;
 import me.ganamaga.katharsis_proxy.command.LinkCommand;
+import me.ganamaga.katharsis_proxy.command.NetworkIdentityCommand;
 import me.ganamaga.katharsis_proxy.command.ServerSwitchCommand;
 import me.ganamaga.katharsis_proxy.command.punish.AltsCommand;
 import me.ganamaga.katharsis_proxy.command.punish.CheckCommand;
@@ -54,6 +55,7 @@ import me.ganamaga.katharsis_proxy.discord.DiscordPunishCommands;
 import me.ganamaga.katharsis_proxy.discord.DiscordPunishmentLog;
 import me.ganamaga.katharsis_proxy.i18n.LanguageRegistry;
 import me.ganamaga.katharsis_proxy.i18n.Messages;
+import me.ganamaga.katharsis_proxy.identity.NetworkIdentity;
 import me.ganamaga.katharsis_proxy.link.AccountLinkService;
 import me.ganamaga.katharsis_proxy.listener.AccountLinkJoinListener;
 import me.ganamaga.katharsis_proxy.listener.FirstJoinMenuListener;
@@ -62,6 +64,8 @@ import me.ganamaga.katharsis_proxy.messaging.AuthChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannel;
 import me.ganamaga.katharsis_proxy.messaging.ChatChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.CompanionRegistry;
+import me.ganamaga.katharsis_proxy.messaging.IdentityChannel;
+import me.ganamaga.katharsis_proxy.messaging.IdentityChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannel;
 import me.ganamaga.katharsis_proxy.messaging.LanguageChannelListener;
 import me.ganamaga.katharsis_proxy.messaging.PunishChannel;
@@ -215,6 +219,9 @@ public class Katharsis_proxy {
     /** Null only if the jar cannot say which version it is. */
     private ProxyUpdates updates;
 
+    /** The network's GNLib identity; null when network.key is unusable. Replaced on rotation. */
+    private volatile NetworkIdentity networkIdentity;
+
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
         logger.info(YELLOW + "Loading Katharsis Proxy...");
@@ -231,6 +238,7 @@ public class Katharsis_proxy {
         setUpPunishments();
         registerCommands();
         registerPluginMessaging();
+        setUpNetworkIdentity();
         registerMotd();
         scheduleCacheSweep();
         setUpUpdates();
@@ -799,6 +807,41 @@ public class Katharsis_proxy {
      */
     public DiscordBot discordBot() {
         return discordBot;
+    }
+
+    /**
+     * The network's GNLib identity, and {@code katharsis:identity}, over which
+     * NeoForge backends running GNLib get their keys certified with it. The
+     * channel is registered even without a key: Velocity raises plugin message
+     * events only for registered channels, and that is what drops the channel
+     * when a client sends it.
+     */
+    private void setUpNetworkIdentity() {
+        Path directory = dataDirectory.resolve("identity");
+        try {
+            NetworkIdentity.Loaded loaded = NetworkIdentity.loadOrCreate(directory);
+            networkIdentity = loaded.identity();
+            if (loaded.generated()) {
+                logger.info("Generated the network's GNLib identity in {}. Back up {}: without it every GNLib "
+                        + "player has to check a new fingerprint.", directory, NetworkIdentity.KEY_FILE);
+            }
+            logger.info("Network GNLib identity: {}. Set it as network-fingerprint on every NeoForge backend "
+                    + "running GNLib (/kidentity prints it).", networkIdentity.fingerprint());
+        } catch (NetworkIdentity.Unusable e) {
+            logger.error("No GNLib network identity, so backends get no certificates: {}", e.getMessage());
+        } catch (IOException e) {
+            logger.error("Could not create the GNLib network identity in {}; backends get no certificates.",
+                    directory, e);
+        }
+        proxy.getChannelRegistrar().register(IdentityChannel.IDENTIFIER);
+        proxy.getEventManager().register(this,
+                new IdentityChannelListener(proxy, logger, () -> networkIdentity, Clock.systemUTC()));
+        CommandManager commandManager = proxy.getCommandManager();
+        commandManager.register(commandManager.metaBuilder(NetworkIdentityCommand.NAME).plugin(this).build(),
+                new NetworkIdentityCommand(messages, () -> networkIdentity, next -> {
+                    networkIdentity = next;
+                    logger.info("Rotated the network's GNLib identity to {}.", next.fingerprint());
+                }, Clock.systemUTC()));
     }
 
     /**

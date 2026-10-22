@@ -189,3 +189,8 @@ update-downloaded: "<green>Katharsis <white><latest></white> je stažený</green
 update-no-file: "<red>Katharsis <white><latest></white> vyšel, ale nemá jar pro proxy.</red>"
 update-failed: "<red>Aktualizace se nepovedla: <white><error></white></red>"
 update-disabled: "<gray>Kontrola aktualizací je v config.yml vypnutá (updates.enabled).</gray>"
+identity-fingerprint: "<gray>GNLib identita sítě je <white><fingerprint></white>. Zadej ji do <gold>network-fingerprint</gold> na každém NeoForge serveru s GNLib; <gold>/kidentity rotate</gold> klíč změní.</gray>"
+identity-none: "<red>Tato proxy nemá GNLib identitu sítě; důvod je v logu proxy.</red>"
+identity-rotate-confirm: "<gold>Tímto nahradíš klíč sítě <white><fingerprint></white>.</gold> <gray>Hráči s GNLib změnu následují 180 dní; kdo se připojí později, musí nový otisk ověřit. Pokračuj příkazem <gold>/kidentity rotate confirm</gold>.</gray>"
+identity-rotated: "<green>Klíč sítě je nyní <white><new></white></green> <gray>(dříve <old>). Servery ho převezmou s dalším certifikátem a samy si upraví network-fingerprint.</gray>"
+identity-rotate-failed: "<red>Klíč sítě se nepodařilo změnit: <white><error></white></red>"

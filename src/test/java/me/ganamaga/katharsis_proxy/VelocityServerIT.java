@@ -105,6 +105,10 @@ class VelocityServerIT {
         assertLogged(log, "Names held by a Mojang account are sent through Mojang's login and skip the password.");
         assertLogged(log, "Registered /login and /register.");
 
+        // The network's GNLib identity: generated on first start, fingerprint printed.
+        assertLogged(log, "Generated the network's GNLib identity in");
+        assertLogged(log, "Network GNLib identity: GN1:");
+
         // The jar knows which build it is, so it can tell whether one is newer.
         assertLogged(log, "This is Katharsis ");
         assertLogged(log, "Checking for new ");
@@ -129,6 +133,8 @@ class VelocityServerIT {
                 "cs_CZ.yml should be copied out of the jar");
         assertTrue(Files.isRegularFile(dataDirectory.resolve("katharsis.mv.db")),
                 "the H2 database file should be created");
+        assertTrue(Files.isRegularFile(dataDirectory.resolve("identity/network.key")),
+                "the network's GNLib identity key should be created");
     }
 
     private void assertCleanShutdown(List<String> log) {
