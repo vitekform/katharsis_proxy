@@ -269,6 +269,48 @@ Where it differs:
 - **Mutes** block chat and the proxy's `punishments.muted-commands` exactly as
   on Paper, before any other mod sees them.
 
+## GNLib remote content
+
+[GNLib](https://github.com/vitekform/MischiefArch/tree/main/gnlib) lets a
+server send its players content (models, animations, menus) that their client
+does not have installed. Its content keys are what a player must not get before
+logging in, and its players pin the identity of the address they joined, which
+on a network must be one identity for every server behind the proxy. With GNLib
+installed next to the Katharsis NeoForge mod, on the Minecraft 1.21.1 line:
+
+- **Remote content waits for the login.** GNLib's auth gate follows the login
+  lock: a player who has not logged in on the proxy gets no content keys, and
+  gets them as soon as the proxy lets them go. Premium players and anyone who
+  logged in elsewhere are let go at once, so their content arrives a moment after
+  they join.
+- **One identity for the whole network.** The proxy keeps the network's GNLib key
+  in `plugins/katharsis/identity/` and prints its fingerprint at startup and with
+  `/kidentity` (permission `katharsis.identity`). Each backend keeps its own key
+  in `gnlib-remote/identity/backend.key` and gets it certified by the proxy over
+  `katharsis:identity` ([plugin-messaging.md](plugin-messaging.md#certificates-over-katharsisidentity)).
+  GNLib players then see the same identity on every server, and moving between
+  them keeps it.
+- **`network-fingerprint` is required.** Set it in
+  `config/katharsis-companion.properties` to the fingerprint `/kidentity` prints.
+  The mod checks every certificate against it. Without it the server presents
+  no network identity, GNLib players get no remote content there, and the log
+  names the fingerprint the proxy presented, to check and paste in. There is
+  deliberately no "trust the first one": that would hand a window to anyone who
+  can reach the backend directly on a fresh install.
+- **Rotation.** `/kidentity rotate confirm` changes the network key. The new
+  key is announced by the old one, backends follow it with their next
+  certificate and rewrite their own `network-fingerprint`, and GNLib players who
+  join within 180 days follow it too.
+
+Without GNLib the mod does exactly what it did before, and none of the GNLib
+classes are loaded. The other lines (1.21.11 and 26.x) have no GNLib support,
+because GNLib serves remote content on 1.21.1 only.
+
+The trust this rests on is the lock's: the backend must be reachable only
+through the proxy, with modern forwarding. A backend reachable directly lets
+anyone send it an `unlock`, which opens the gate too. A forged certificate does
+not help them, thanks to `network-fingerprint`.
+
 ## Adding a language
 
 Add `lang/<code>.yml` to the **proxy's** data directory and restart the proxy.

@@ -383,3 +383,74 @@ canonical dashed form. `locked` goes on with one more:
 
 The mod registers the channel as optional, so clients do not need the mod. It
 takes `unlock` off the connection before the server or any other mod sees it.
+
+# Certificates over `katharsis:identity`
+
+Only used when a NeoForge backend runs [GNLib](https://github.com/vitekform/MischiefArch/tree/main/gnlib)
+next to the Katharsis mod; see
+[companion-plugin.md](companion-plugin.md#gnlib-remote-content). GNLib players
+pin one identity per address. On a Katharsis network that identity is the
+proxy's *network key*, and each backend proves it belongs to the network with a
+short-lived certificate the proxy signs for the backend's own key. The formats of
+the key, the fingerprint and the certificate are GNLib's
+(`gnlib/docs/remote/identity.md`, "Network certificates"); this channel only
+carries them.
+
+| Operation      | Direction        | Meaning                                                    |
+|----------------|------------------|------------------------------------------------------------|
+| `cert_request` | backend to proxy | Certify this backend key for the network.                   |
+| `cert`         | proxy to backend | The certificate, or why there is none.                      |
+
+Like the other channels, messages from clients are dropped and nothing on it is
+forwarded to the other side, and the proxy registers the channel even when it
+has no key, because Velocity only raises the event that drops a client's message
+for registered channels. The mod does not rely on that alone: it checks every
+certificate against the network fingerprint it is configured with, so one forged
+by someone who reached the backend directly is useless.
+
+## Encoding
+
+A request is three `DataOutput#writeUTF` strings and the key:
+
+| # | Field       | Type     | Notes                                               |
+|---|-------------|----------|-----------------------------------------------------|
+| 1 | `operation` | UTF      | `cert_request`                                       |
+| 2 | `requestId` | UTF      | Echoed back.                                         |
+| 3 | `protocol`  | UTF      | The mod's protocol, currently `1`. The proxy logs a mismatch. |
+| 4 | `key`       | 32 bytes | The backend's raw Ed25519 public key (RFC 8032).      |
+
+A reply:
+
+| # | Field         | Type                 | Notes                                                    |
+|---|---------------|----------------------|----------------------------------------------------------|
+| 1 | `operation`   | UTF                  | `cert`                                                    |
+| 2 | `requestId`   | UTF                  | From the request.                                         |
+| 3 | `success`     | boolean              |                                                           |
+| 4 | `error`       | UTF                  | Empty on success; see below.                              |
+| 5 | `certificate` | u16 length and bytes | Success only. GNLib's certificate format.                 |
+| 6 | `rotations`   | u8 count             | Success only. Then `count` rotation statements of 141 bytes, oldest first. |
+
+| Error               | Meaning                                                                       |
+|---------------------|-------------------------------------------------------------------------------|
+| `malformed_request` | The request did not decode.                                                   |
+| `unknown_server`    | The server it came from is not in velocity.toml, or its name is over 64 bytes. |
+| `no_identity`       | The proxy has no usable network key; its log says why.                        |
+
+## What the proxy signs
+
+A certificate for exactly the key in the request, named as velocity.toml names
+the server whose connection carried it, valid from five minutes ago for 48 hours.
+With it go the network key's rotation statements from the last 180 days, at most
+eight, so GNLib players who pinned an older network key can follow a rotation.
+
+## When they are sent
+
+- The mod asks when a player joins, and while players are online whenever its
+  certificate is past half its life. Like every plugin message, a request needs
+  a player's connection, and it is sent in the play phase.
+- A server that has never had a certificate, or was empty for longer than one
+  lasts, therefore presents no network identity to the first player who joins;
+  their join fetches one for everyone after. The mod keeps its certificate on
+  disk, so a restart does not need the proxy.
+- After a refusal or a certificate it would not take, the mod waits ten minutes
+  before asking again.
